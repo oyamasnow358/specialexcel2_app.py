@@ -1,35 +1,49 @@
 import streamlit as st
-from openpyxl import load_workbook
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
 
-# Excelファイル操作
-def write_to_excel(file_path, sheet_name, cell, value):
-    try:
-        wb = load_workbook(filename=file_path, keep_vba=True)
-        ws = wb[sheet_name]
-        ws[cell] = value
-        wb.save(file_path)
-    except Exception as e:
-        raise RuntimeError(f"Excelファイルの書き込み中にエラーが発生しました: {e}")
-    finally:
-        wb.close()
+# Google Sheets API 認証
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SERVICE_ACCOUNT_FILE = 'propane-atrium-449411-e6-e1bccb92a993.json'
 
-def read_from_excel(file_path, sheet_name, cell):
+@st.cache_resource
+def authenticate_sheets():
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    return build('sheets', 'v4', credentials=creds)
+
+# Googleスプレッドシート操作関数
+def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
     try:
-        wb = load_workbook(filename=file_path, data_only=True, keep_vba=True)
-        ws = wb[sheet_name]
-        value = ws[cell].value
-        return value
+        service = authenticate_sheets()
+        sheet_range = f"{sheet_name}!{cell}"
+        body = {'values': [[value]]}
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=sheet_range,
+            valueInputOption="RAW",
+            body=body
+        ).execute()
     except Exception as e:
-        raise RuntimeError(f"Excelファイルの読み取り中にエラーが発生しました: {e}")
-    finally:
-        wb.close()
+        raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
+
+def read_from_sheets(spreadsheet_id, sheet_name, cell):
+    try:
+        service = authenticate_sheets()
+        sheet_range = f"{sheet_name}!{cell}"
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id, range=sheet_range).execute()
+        values = result.get('values', [])
+        return values[0][0] if values else None
+    except Exception as e:
+        raise RuntimeError(f"スプレッドシートの読み取り中にエラーが発生しました: {e}")
 
 # Streamlitアプリ
 def main():
-    st.title("Webアプリ ⇔ Excel 連携")
+    st.title("Webアプリ ⇔ スプレッドシート連携")
 
-    excel_path = "rennsyuu.xlsm"
-    sheet = "Sheet1"
+    spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+    sheet_name = "シート1"
 
     # 項目と選択肢リスト
     categories = ["認知力・操作", "言語理解", "表出言語"]
@@ -43,21 +57,19 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-    if st.button("Excelに書き込む"):
+    if st.button("スプレッドシートに書き込む"):
         try:
-            # 各項目を対応するセルに書き込む（例: A3, B3, C3）
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                write_to_excel(excel_path, sheet, f"A{index + 2}", category)  # A3, A4, A5に項目
-                write_to_excel(excel_path, sheet, f"B{index + 2}", selected_option)  # B3, B4, B5に選択肢
-            st.success("各項目と選択肢がExcelに書き込まれました！")
+                write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)  # A3, A4, A5に項目
+                write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)  # B3, B4, B5に選択肢
+            st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-    if st.button("Excelの答えを取得"):
+    if st.button("スプレッドシートの答えを取得"):
         try:
-            # A5セルの値を取得して表示
-            result = read_from_excel(excel_path, sheet, "A5")
-            st.write(f"Excelの答え: {result}")
+            result = read_from_sheets(spreadsheet_id, sheet_name, "B2")
+            st.write(f"スプレッドシートの答え: {result}")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
