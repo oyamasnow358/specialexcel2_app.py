@@ -4,21 +4,30 @@ from google.oauth2 import service_account
 import os
 from google.cloud import storage
 
-# 環境変数から取得
-credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-if credentials_path is None:
-    raise ValueError("GOOGLE_APPLICATION_CREDENTIALS が設定されていません")
+# 環境変数または直接指定で認証情報ファイルのパスを取得
+credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "propane-atrium-449411-e6-e1bccb92a993.json")
+if not os.path.exists(credentials_path):
+    st.error("認証情報ファイルが見つかりません。適切なJSONファイルを指定してください。")
+    st.stop()  # アプリを終了
 
 # Google Cloud Storage クライアント
-client = storage.Client.from_service_account_json(credentials_path)
+try:
+    client = storage.Client.from_service_account_json(credentials_path)
+except Exception as e:
+    st.error(f"Google Cloud Storage の認証に失敗しました: {e}")
+    st.stop()
 
 # Google Sheets API 認証
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def authenticate_sheets():
-    creds = service_account.Credentials.from_service_account_file(
-        credentials_path, scopes=SCOPES)
-    return build('sheets', 'v4', credentials=creds)
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            credentials_path, scopes=SCOPES)
+        return build('sheets', 'v4', credentials=creds)
+    except Exception as e:
+        st.error(f"Google Sheets API の認証に失敗しました: {e}")
+        st.stop()
 
 # Googleスプレッドシート操作関数
 def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
