@@ -1,5 +1,8 @@
-echo google-api-python-client > requirements.txt
-echo google-auth >> requirements.txt
-echo google-auth-oauthlib >> requirements.txt
-echo google-auth-httplib2 >> requirements.txt
-echo google-cloud-storage >> requirements.txt
+echo google-api-python-client
+echo google-auth
+echo google-auth-oauthlib
+echo google-auth-httplib2
+echo google-cloud-storage
+google-api-python-client
+pandas
+numpy
