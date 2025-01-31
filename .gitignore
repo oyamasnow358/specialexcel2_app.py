@@ -1,0 +1,3 @@
+# 機密情報のJSONファイルを除外
+*.json
+propane-atrium-449411-e6-e1bccb92a993.json
