@@ -1,8 +1,6 @@
-echo google-api-python-client
-echo google-auth
-echo google-auth-oauthlib
-echo google-auth-httplib2
-echo google-cloud-storage
+streamlit
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
 google-api-python-client
-pandas
-numpy
+google-cloud-storage

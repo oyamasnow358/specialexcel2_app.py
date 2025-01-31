@@ -5,7 +5,7 @@ import os
 from google.cloud import storage
 
 # 環境変数または直接指定で認証情報ファイルのパスを取得
-credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "propane-atrium-449411-e6-e1bccb92a993.json")
+credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "config/propane-atrium-449411-e6-e1bccb92a993.json")
 if not os.path.exists(credentials_path):
     st.error("認証情報ファイルが見つかりません。適切なJSONファイルを指定してください。")
     st.stop()  # アプリを終了
