@@ -1,15 +1,23 @@
 import streamlit as st
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+import os
+from google.cloud import storage
+
+# 環境変数から取得
+credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+if credentials_path is None:
+    raise ValueError("GOOGLE_APPLICATION_CREDENTIALS が設定されていません")
+
+# Google Cloud Storage クライアント
+client = storage.Client.from_service_account_json(credentials_path)
 
 # Google Sheets API 認証
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SERVICE_ACCOUNT_FILE = 'propane-atrium-449411-e6-e1bccb92a993.json'
 
-@st.cache_resource
 def authenticate_sheets():
     creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        credentials_path, scopes=SCOPES)
     return build('sheets', 'v4', credentials=creds)
 
 # Googleスプレッドシート操作関数
