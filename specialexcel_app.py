@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import requests
 from google.cloud import storage
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -31,6 +32,8 @@ def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
+
+
 def read_from_sheets(spreadsheet_id, sheet_name, cell):
     try:
         sheet_range = f"{sheet_name}!{cell}"
@@ -61,13 +64,19 @@ def main():
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
     if st.button("スプレッドシートに書き込む"):
-        try:
-            for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)  # A3, A4, A5に項目
-                write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)  # B3, B4, B5に選択肢
-            st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
-        except RuntimeError as e:
-            st.error(f"エラー: {e}")
+    try:
+        # 先に「シート1」のデータを削除
+        clear_sheet(spreadsheet_id, sheet_name)
+        
+        # スプレッドシートにデータを書き込む
+        for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
+            write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)  # A3, A4, A5に項目
+            write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)  # B3, B4, B5に選択肢
+        
+        st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
+    
+    except RuntimeError as e:
+        st.error(f"エラー: {e}")
 
     if st.button("スプレッドシートの答えを取得"):
         try:
@@ -75,6 +84,26 @@ def main():
             st.write(f"スプレッドシートの答え: {result}")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
+
+            def download_spreadsheet(spreadsheet_id):
+    try:
+        # スプレッドシートをExcel形式でエクスポート
+        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
+        headers = {"Authorization": f"Bearer {credentials.token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            with open("spreadsheet.xlsx", "wb") as f:
+                f.write(response.content)
+            
+            with open("spreadsheet.xlsx", "rb") as f:
+                st.download_button("スプレッドシートをダウンロード", f, file_name="spreadsheet.xlsx")
+        else:
+            st.error("スプレッドシートのダウンロードに失敗しました。")
+    
+    except Exception as e:
+        st.error(f"ダウンロード中にエラーが発生しました: {e}")
 
 if __name__ == "__main__":
     main()
