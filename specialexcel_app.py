@@ -26,6 +26,30 @@ client = storage.Client(credentials=credentials)
 # スプレッドシートのID
 spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
 
+# シートIDを取得する関数
+def get_sheet_id(sheet_name):
+    try:
+        spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get("sheets", [])
+        for sheet in sheets:
+            if sheet["properties"]["title"] == sheet_name:
+                return sheet["properties"]["sheetId"]
+        return None
+    except Exception as e:
+        st.error(f"シートID取得中にエラーが発生しました: {e}")
+        return None
+
+# Google Sheets にデータを書き込む関数
+def write_to_sheets(sheet_name, cell, value):
+    try:
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{sheet_name}!{cell}",
+            valueInputOption="RAW",
+            body={"values": [[value]]}
+        ).execute()
+    except Exception as e:
+        st.error(f"スプレッドシート書き込み中にエラー: {e}")
 
 # Google Sheets に棒グラフを作成
 def create_bar_chart(sheet_name):
@@ -34,32 +58,7 @@ def create_bar_chart(sheet_name):
         st.error("シートIDが取得できませんでした。")
         return
 
-# 指定したシート名からシートIDを取得する
-def get_sheet_id_by_name(sheet_name):
     try:
-        sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-        sheets = sheet_metadata.get("sheets", [])
-
-        for sheet in sheets:
-            if sheet["properties"]["title"] == sheet_name:
-                return sheet["properties"]["sheetId"]
-
-        raise ValueError(f"シート '{sheet_name}' が見つかりませんでした")
-    
-    except Exception as e:
-        st.error(f"シートID取得中にエラーが発生しました: {e}")
-        return None
-
-
-# Google Sheets に棒グラフを作成
-def create_bar_chart(sheet_name):
-    try:
-        # 「シート1」のシートIDを取得
-        sheet_id = get_sheet_id_by_name(sheet_name)
-        if sheet_id is None:
-            return  # シートID取得に失敗したら処理を中止
-
-        # グラフ作成のリクエスト
         requests = [{
             "addChart": {
                 "chart": {
@@ -76,9 +75,9 @@ def create_bar_chart(sheet_name):
                                 "domain": {
                                     "sourceRange": {
                                         "sources": [{
-                                            "sheetId": sheet_id,  # 取得したシートIDを使用
+                                            "sheetId": sheet_id,
                                             "startRowIndex": 1,
-                                            "endRowIndex": len(categories) + 1,  # カテゴリー数に応じて変更
+                                            "endRowIndex": 11,  # 10項目分
                                             "startColumnIndex": 0,
                                             "endColumnIndex": 1
                                         }]
@@ -89,9 +88,9 @@ def create_bar_chart(sheet_name):
                                 "series": {
                                     "sourceRange": {
                                         "sources": [{
-                                            "sheetId": sheet_id,  # 取得したシートIDを使用
+                                            "sheetId": sheet_id,
                                             "startRowIndex": 1,
-                                            "endRowIndex": len(categories) + 1,
+                                            "endRowIndex": 11,
                                             "startColumnIndex": 1,
                                             "endColumnIndex": 2
                                         }]
@@ -104,8 +103,8 @@ def create_bar_chart(sheet_name):
                     "position": {
                         "overlayPosition": {
                             "anchorCell": {
-                                "sheetId": sheet_id,  # 取得したシートIDを使用
-                                "rowIndex": 6,
+                                "sheetId": sheet_id,
+                                "rowIndex": 15,
                                 "columnIndex": 0
                             }
                         }
@@ -114,24 +113,24 @@ def create_bar_chart(sheet_name):
             }
         }]
 
-        # リクエスト送信
         service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id,
             body={"requests": requests}
         ).execute()
 
-        st.success("スプレッドシート『シート1』に棒グラフを作成しました！")
+        st.success("スプレッドシートに棒グラフを作成しました！")
 
     except Exception as e:
         st.error(f"棒グラフ作成中にエラーが発生しました: {e}")
+
 # Streamlit アプリ
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
 
     sheet_name = "シート1"
 
-    categories = ["認知力・操作", "言語理解", "表出言語","視覚記憶","聴覚記憶","読字","書字","数","運動","生活動作"]
-    options = ["0〜3か月", "3〜6か月", "6〜9か月", "9〜12か月","12～18ヶ月","18～24ヶ月","2～3歳","3～4歳","4～5歳","5～6歳","6際～7歳","7歳以上"]
+    categories = ["認知力・操作", "言語理解", "表出言語", "視覚記憶", "聴覚記憶", "読字", "書字", "数", "運動", "生活動作"]
+    options = ["0〜3か月", "3〜6か月", "6〜9か月", "9〜12か月", "12～18ヶ月", "18～24ヶ月", "2～3歳", "3～4歳", "4～5歳", "5～6歳", "6歳～7歳", "7歳以上"]
 
     selected_options = {}
 
