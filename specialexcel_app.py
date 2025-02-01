@@ -23,57 +23,93 @@ drive_service = build('drive', 'v3', credentials=credentials)
 # Google Cloud Storage クライアントを作成（必要なら使用）
 client = storage.Client(credentials=credentials)
 
-# **スプレッドシートのIDをグローバル変数として定義**
+# スプレッドシートのID
 spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
 
-
-# Googleスプレッドシートにデータを書き込む
-def write_to_sheets(sheet_name, cell, value):
+# シートIDを取得する関数
+def get_sheet_id(sheet_name):
     try:
-        sheet_range = f"{sheet_name}!{cell}"
-        body = {'values': [[value]]}
-        service.spreadsheets().values().update(
+        spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get("sheets", [])
+        for sheet in sheets:
+            if sheet["properties"]["title"] == sheet_name:
+                return sheet["properties"]["sheetId"]
+        return None
+    except Exception as e:
+        st.error(f"シートID取得中にエラーが発生しました: {e}")
+        return None
+
+# Google Sheets に棒グラフを作成
+def create_bar_chart(sheet_name):
+    sheet_id = get_sheet_id(sheet_name)
+    if sheet_id is None:
+        st.error("シートIDが取得できませんでした。")
+        return
+
+    try:
+        requests = [{
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "発達段階 棒グラフ",
+                        "basicChart": {
+                            "chartType": "COLUMN",
+                            "legendPosition": "BOTTOM",
+                            "axis": [
+                                {"position": "BOTTOM", "title": "カテゴリー"},
+                                {"position": "LEFT", "title": "発達段階"}
+                            ],
+                            "domains": [{
+                                "domain": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": sheet_id,
+                                            "startRowIndex": 1,
+                                            "endRowIndex": 11,  # 10項目分
+                                            "startColumnIndex": 0,
+                                            "endColumnIndex": 1
+                                        }]
+                                    }
+                                }
+                            }],
+                            "series": [{
+                                "series": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": sheet_id,
+                                            "startRowIndex": 1,
+                                            "endRowIndex": 11,
+                                            "startColumnIndex": 1,
+                                            "endColumnIndex": 2
+                                        }]
+                                    }
+                                },
+                                "targetAxis": "LEFT"
+                            }]
+                        }
+                    },
+                    "position": {
+                        "overlayPosition": {
+                            "anchorCell": {
+                                "sheetId": sheet_id,
+                                "rowIndex": 15,
+                                "columnIndex": 0
+                            }
+                        }
+                    }
+                }
+            }
+        }]
+
+        service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id,
-            range=sheet_range,
-            valueInputOption="RAW",
-            body=body
+            body={"requests": requests}
         ).execute()
-    except Exception as e:
-        raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
-
-# Googleスプレッドシートからデータを取得する
-def read_from_sheets(sheet_name, cell):
-    try:
-        sheet_range = f"{sheet_name}!{cell}"
-        result = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id, range=sheet_range).execute()
-        values = result.get('values', [])
-        return values[0][0] if values else None
-    except Exception as e:
-        raise RuntimeError(f"スプレッドシートの読み取り中にエラーが発生しました: {e}")
-
-
-# GoogleスプレッドシートをExcel形式でダウンロード
-def download_spreadsheet():
-    try:
-        file_id = spreadsheet_id
-        request = drive_service.files().export_media(
-            fileId=file_id,
-            mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        file_stream = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_stream, request)
-
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        file_stream.seek(0)
-        st.session_state["spreadsheet_data"] = file_stream  # **セッションにデータを保存**
+        st.success("スプレッドシートに棒グラフを作成しました！")
 
     except Exception as e:
-        st.error(f"ダウンロード中にエラーが発生しました: {e}")
+        st.error(f"棒グラフ作成中にエラーが発生しました: {e}")
 
 # Streamlit アプリ
 def main():
@@ -99,25 +135,9 @@ def main():
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-    if st.button("スプレッドシートの答えを取得"):
-        try:
-            result = read_from_sheets(sheet_name, "B2")
-            st.write(f"スプレッドシートの答え: {result}")
-        except RuntimeError as e:
-            st.error(f"エラー: {e}")
-
-    # **ダウンロードボタン**
-    if st.button("スプレッドシートをダウンロード"):
-        download_spreadsheet()
-
-    # **ダウンロードデータが準備できたら自動的に表示**
-    if "spreadsheet_data" in st.session_state:
-        st.download_button(
-            label="スプレッドシートを保存",
-            data=st.session_state["spreadsheet_data"],
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    # 棒グラフ作成ボタン
+    if st.button("棒グラフを作成"):
+        create_bar_chart(sheet_name)
 
 if __name__ == "__main__":
     main()
