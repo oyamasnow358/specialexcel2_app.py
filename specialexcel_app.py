@@ -107,7 +107,9 @@ def download_spreadsheet(spreadsheet_id):
 
     except Exception as e:
         st.error(f"ダウンロード中にエラーが発生しました: {e}")
-
+        
+if st.button("スプレッドシートをダウンロード"):
+    download_spreadsheet(spreadsheet_id)
 
 if __name__ == "__main__":
     main()
