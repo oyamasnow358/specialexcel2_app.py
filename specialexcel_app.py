@@ -1,43 +1,25 @@
 import streamlit as st
-from googleapiclient.discovery import build
-from google.oauth2 import service_account
 import os
 from google.cloud import storage
 from googleapiclient.discovery import build
-from google.oauth2 import service_account
+from google.oauth2.service_account import Credentials
+from google.cloud import storage
 
 # Secrets から認証情報を取得
-credentials = service_account.Credentials.from_service_account_info(
+credentials = Credentials.from_service_account_info(
     st.secrets["google_credentials"],
-    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/devstorage.full_control"]
 )
 
 # Google Sheets API クライアントを作成
 service = build('sheets', 'v4', credentials=credentials)
 
-# Google Cloud Storage クライアント
-try:
-    client = storage.Client.from_service_account_json(credentials_path)
-except Exception as e:
-    st.error(f"Google Cloud Storage の認証に失敗しました: {e}")
-    st.stop()
-
-# Google Sheets API 認証
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-
-def authenticate_sheets():
-    try:
-        creds = service_account.Credentials.from_service_account_file(
-            credentials_path, scopes=SCOPES)
-        return build('sheets', 'v4', credentials=creds)
-    except Exception as e:
-        st.error(f"Google Sheets API の認証に失敗しました: {e}")
-        st.stop()
+# Google Cloud Storage クライアントを作成
+client = storage.Client(credentials=credentials)
 
 # Googleスプレッドシート操作関数
 def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
     try:
-        service = authenticate_sheets()
         sheet_range = f"{sheet_name}!{cell}"
         body = {'values': [[value]]}
         service.spreadsheets().values().update(
@@ -51,7 +33,6 @@ def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
 
 def read_from_sheets(spreadsheet_id, sheet_name, cell):
     try:
-        service = authenticate_sheets()
         sheet_range = f"{sheet_name}!{cell}"
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id, range=sheet_range).execute()
