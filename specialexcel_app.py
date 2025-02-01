@@ -5,6 +5,9 @@ from google.cloud import storage
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
+from googleapiclient.http import MediaIoBaseDownload
+import io
+
 
 # Secrets から認証情報を取得
 credentials = Credentials.from_service_account_info(
@@ -79,86 +82,31 @@ def main():
 
 def download_spreadsheet(spreadsheet_id):
     try:
-        # スプレッドシートをExcel形式でエクスポート
-        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
-        headers = {"Authorization": f"Bearer {credentials.token}"}
+        # Google Drive API クライアントを作成
+        drive_service = build('drive', 'v3', credentials=credentials)
 
-        response = requests.get(url, headers=headers)
+        # スプレッドシートをExcel（.xlsx）としてエクスポート
+        file_id = spreadsheet_id
+        request = drive_service.files().export_media(fileId=file_id, mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_stream, request)
 
-        if response.status_code == 200:
-            with open("spreadsheet.xlsx", "wb") as f:
-                f.write(response.content)
-            
-            with open("spreadsheet.xlsx", "rb") as f:
-                st.download_button("スプレッドシートをダウンロード", f, file_name="spreadsheet.xlsx")
-        else:
-            st.error("スプレッドシートのダウンロードに失敗しました。")
-    
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        file_stream.seek(0)  # ストリームの先頭に戻る
+
+        # Streamlit のダウンロードボタンを作成
+        st.download_button(
+            label="スプレッドシートをダウンロード",
+            data=file_stream,
+            file_name="spreadsheet.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
     except Exception as e:
         st.error(f"ダウンロード中にエラーが発生しました: {e}")
-
-# スプレッドシートに棒グラフを追加
-def add_chart_to_sheets(spreadsheet_id, sheet_name):
-    try:
-        chart_request = {
-            "requests": [
-                {
-                    "addChart": {
-                        "chart": {
-                            "spec": {
-                                "title": "発達段階の比較",
-                                "basicChart": {
-                                    "chartType": "COLUMN",
-                                    "legendPosition": "BOTTOM",
-                                    "axis": [
-                                        {"position": "BOTTOM", "title": "カテゴリ"},
-                                        {"position": "LEFT", "title": "発達段階"}
-                                    ],
-                                    "domains": [
-                                        {
-                                            "domain": {
-                                                "sourceRange": {
-                                                    "sources": [
-                                                        {"sheetId": 0, "startRowIndex": 2, "endRowIndex": 5, "startColumnIndex": 0, "endColumnIndex": 1}
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    ],
-                                    "series": [
-                                        {
-                                            "series": {
-                                                "sourceRange": {
-                                                    "sources": [
-                                                        {"sheetId": 0, "startRowIndex": 2, "endRowIndex": 5, "startColumnIndex": 1, "endColumnIndex": 2}
-                                                    ]
-                                                }
-                                            },
-                                            "targetAxis": "LEFT"
-                                        }
-                                    ]
-                                }
-                            },
-                            "position": {
-                                "overlayPosition": {
-                                    "anchorCell": {
-                                        "sheetId": 0,
-                                        "rowIndex": 7,
-                                        "columnIndex": 1
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            ]
-        }
-        service.spreadsheets().batchUpdate(
-            spreadsheetId=spreadsheet_id, body=chart_request
-        ).execute()
-        st.success("スプレッドシートに棒グラフを追加しました！")
-    except Exception as e:
-        st.error(f"棒グラフの追加中にエラーが発生しました: {e}")
 
 
 if __name__ == "__main__":
