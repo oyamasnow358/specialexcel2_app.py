@@ -75,6 +75,85 @@ def download_spreadsheet():
     except Exception as e:
         st.error(f"ダウンロード中にエラーが発生しました: {e}")
 
+# 棒グラフをスプレッドシートに追加する関数
+def add_chart_to_sheet():
+    try:
+        requests = [
+            {
+                "addChart": {
+                    "chart": {
+                        "spec": {
+                            "title": "選択肢別の棒グラフ",
+                            "basicChart": {
+                                "chartType": "BAR",
+                                "legendPosition": "BOTTOM_LEGEND",
+                                "axis": [
+                                    {
+                                        "position": "BOTTOM_AXIS",
+                                        "title": "カテゴリー",
+                                    },
+                                    {
+                                        "position": "LEFT_AXIS",
+                                        "title": "選択肢数",
+                                    }
+                                ],
+                                "domains": [
+                                    {
+                                        "domain": {
+                                            "sourceRange": {
+                                                "sources": [
+                                                    {
+                                                        "sheetId": 0,  # シートのID（シート1）
+                                                        "startRowIndex": 1,
+                                                        "endRowIndex": len(categories) + 2,  # カテゴリーの範囲
+                                                        "startColumnIndex": 0,
+                                                        "endColumnIndex": 1
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                ],
+                                "series": [
+                                    {
+                                        "series": {
+                                            "sourceRange": {
+                                                "sources": [
+                                                    {
+                                                        "sheetId": 0,
+                                                        "startRowIndex": 1,
+                                                        "endRowIndex": len(categories) + 2,
+                                                        "startColumnIndex": 1,
+                                                        "endColumnIndex": 2
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "targetAxis": "LEFT_AXIS"
+                                    }
+                                ]
+                            }
+                        },
+                        "position": {
+                            "overlayPosition": {
+                                "anchorCell": "D4",  # グラフを表示するセル位置
+                                "offsetXPixels": 0,
+                                "offsetYPixels": 0
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+        # リクエストを実行してグラフを追加
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests}
+        ).execute()
+
+        st.success("棒グラフがスプレッドシートに追加されました！")
+    except HttpError as error:
+        st.error(f"グラフの作成中にエラーが発生しました: {error}")
+
 # Streamlit アプリ
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
@@ -118,6 +197,10 @@ def main():
             file_name="spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+    # 棒グラフ追加ボタン
+    if st.button("棒グラフを追加"):
+        add_chart_to_sheet()
 
 if __name__ == "__main__":
     main()
