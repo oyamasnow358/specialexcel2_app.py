@@ -45,11 +45,11 @@ def read_from_sheets(spreadsheet_id, sheet_name, cell):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートの読み取り中にエラーが発生しました: {e}")
 
-# Streamlitアプリ
+        spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"  # ここを main() の外に移動
+
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
 
-    spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
     sheet_name = "シート1"
 
     # 項目と選択肢リスト
@@ -67,8 +67,8 @@ def main():
     if st.button("スプレッドシートに書き込む"):
         try:
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)  # A3, A4, A5に項目
-                write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)  # B3, B4, B5に選択肢
+                write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)
+                write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)
             st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
@@ -80,36 +80,10 @@ def main():
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-def download_spreadsheet(spreadsheet_id):
-    try:
-        # Google Drive API クライアントを作成
-        drive_service = build('drive', 'v3', credentials=credentials)
+    # **ダウンロードボタンを一番下に配置**
+    if st.button("スプレッドシートをダウンロード"):
+        download_spreadsheet(spreadsheet_id)
 
-        # スプレッドシートをExcel（.xlsx）としてエクスポート
-        file_id = spreadsheet_id
-        request = drive_service.files().export_media(fileId=file_id, mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        file_stream = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_stream, request)
-
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        file_stream.seek(0)  # ストリームの先頭に戻る
-
-        # Streamlit のダウンロードボタンを作成
-        st.download_button(
-            label="スプレッドシートをダウンロード",
-            data=file_stream,
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    except Exception as e:
-        st.error(f"ダウンロード中にエラーが発生しました: {e}")
-        
-if st.button("スプレッドシートをダウンロード"):
-    download_spreadsheet(spreadsheet_id)
 
 if __name__ == "__main__":
     main()
