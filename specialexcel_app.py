@@ -5,9 +5,6 @@ from google.cloud import storage
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
-from googleapiclient.http import MediaIoBaseDownload
-import io
-
 
 # Secrets から認証情報を取得
 credentials = Credentials.from_service_account_info(
@@ -45,11 +42,11 @@ def read_from_sheets(spreadsheet_id, sheet_name, cell):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートの読み取り中にエラーが発生しました: {e}")
 
-        spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"  # ここを main() の外に移動
-
+# Streamlitアプリ
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
 
+    spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
     sheet_name = "シート1"
 
     # 項目と選択肢リスト
@@ -67,8 +64,8 @@ def main():
     if st.button("スプレッドシートに書き込む"):
         try:
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)
-                write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)
+                write_to_sheets(spreadsheet_id, sheet_name, f"A{index + 2}", category)  # A3, A4, A5に項目
+                write_to_sheets(spreadsheet_id, sheet_name, f"B{index + 2}", selected_option)  # B3, B4, B5に選択肢
             st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
@@ -80,9 +77,26 @@ def main():
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-    # **ダウンロードボタンを一番下に配置**
-    if st.button("スプレッドシートをダウンロード"):
-        download_spreadsheet(spreadsheet_id)
+def download_spreadsheet(spreadsheet_id):
+    try:
+        # スプレッドシートをExcel形式でエクスポート
+        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
+        headers = {"Authorization": f"Bearer {credentials.token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            with open("spreadsheet.xlsx", "wb") as f:
+                f.write(response.content)
+            
+            with open("spreadsheet.xlsx", "rb") as f:
+                st.download_button("スプレッドシートをダウンロード", f, file_name="spreadsheet.xlsx")
+        else:
+            st.error("スプレッドシートのダウンロードに失敗しました。")
+    
+    except Exception as e:
+        st.error(f"ダウンロード中にエラーが発生しました: {e}")
+
 
 
 if __name__ == "__main__":
