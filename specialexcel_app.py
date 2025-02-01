@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import requests
 from google.cloud import storage
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -75,6 +76,26 @@ def main():
             st.write(f"スプレッドシートの答え: {result}")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
+
+def download_spreadsheet(spreadsheet_id):
+    try:
+        # スプレッドシートをExcel形式でエクスポート
+        url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=xlsx"
+        headers = {"Authorization": f"Bearer {credentials.token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            with open("spreadsheet.xlsx", "wb") as f:
+                f.write(response.content)
+            
+            with open("spreadsheet.xlsx", "rb") as f:
+                st.download_button("スプレッドシートをダウンロード", f, file_name="spreadsheet.xlsx")
+        else:
+            st.error("スプレッドシートのダウンロードに失敗しました。")
+    
+    except Exception as e:
+        st.error(f"ダウンロード中にエラーが発生しました: {e}")
 
 if __name__ == "__main__":
     main()
