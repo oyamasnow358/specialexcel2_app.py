@@ -97,5 +97,69 @@ def download_spreadsheet(spreadsheet_id):
     except Exception as e:
         st.error(f"ダウンロード中にエラーが発生しました: {e}")
 
+# スプレッドシートに棒グラフを追加
+def add_chart_to_sheets(spreadsheet_id, sheet_name):
+    try:
+        chart_request = {
+            "requests": [
+                {
+                    "addChart": {
+                        "chart": {
+                            "spec": {
+                                "title": "発達段階の比較",
+                                "basicChart": {
+                                    "chartType": "COLUMN",
+                                    "legendPosition": "BOTTOM",
+                                    "axis": [
+                                        {"position": "BOTTOM", "title": "カテゴリ"},
+                                        {"position": "LEFT", "title": "発達段階"}
+                                    ],
+                                    "domains": [
+                                        {
+                                            "domain": {
+                                                "sourceRange": {
+                                                    "sources": [
+                                                        {"sheetId": 0, "startRowIndex": 2, "endRowIndex": 5, "startColumnIndex": 0, "endColumnIndex": 1}
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "series": [
+                                        {
+                                            "series": {
+                                                "sourceRange": {
+                                                    "sources": [
+                                                        {"sheetId": 0, "startRowIndex": 2, "endRowIndex": 5, "startColumnIndex": 1, "endColumnIndex": 2}
+                                                    ]
+                                                }
+                                            },
+                                            "targetAxis": "LEFT"
+                                        }
+                                    ]
+                                }
+                            },
+                            "position": {
+                                "overlayPosition": {
+                                    "anchorCell": {
+                                        "sheetId": 0,
+                                        "rowIndex": 7,
+                                        "columnIndex": 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body=chart_request
+        ).execute()
+        st.success("スプレッドシートに棒グラフを追加しました！")
+    except Exception as e:
+        st.error(f"棒グラフの追加中にエラーが発生しました: {e}")
+
+
 if __name__ == "__main__":
     main()
