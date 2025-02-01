@@ -99,96 +99,6 @@ def main():
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-# **選択肢を数値に変換**
-option_values = {
-    "0〜3か月": 1, "3〜6か月": 2, "6〜9か月": 3, "9〜12か月": 4,
-    "12か月～18ヶ月": 5, "18ヶ月～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
-    "4～5歳": 9, "5～6歳": 10, "6歳～7歳": 11, "7歳以上": 12
-}
-
-# スプレッドシートにデータを書き込む
-def write_to_sheets(sheet_name, cell, value):
-    try:
-        sheet_range = f"{sheet_name}!{cell}"
-        body = {'values': [[value]]}
-        service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=sheet_range,
-            valueInputOption="RAW",
-            body=body
-        ).execute()
-    except Exception as e:
-        raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
-
-# Google Sheets に棒グラフを作成
-def create_bar_chart(sheet_name):
-    try:
-        # グラフ作成のリクエスト
-        requests = [{
-            "addChart": {
-                "chart": {
-                    "spec": {
-                        "title": "発達段階 棒グラフ",
-                        "basicChart": {
-                            "chartType": "COLUMN",
-                            "legendPosition": "BOTTOM",
-                            "axis": [
-                                {"position": "BOTTOM", "title": "カテゴリー"},
-                                {"position": "LEFT", "title": "発達段階"}
-                            ],
-                            "domains": [{
-                                "domain": {
-                                    "sourceRange": {
-                                        "sources": [{
-                                            "sheetId": 0,  # シートのID（デフォルト 0）
-                                            "startRowIndex": 1,
-                                            "endRowIndex": 4,  # 3カテゴリ分
-                                            "startColumnIndex": 0,
-                                            "endColumnIndex": 1
-                                        }]
-                                    }
-                                }
-                            }],
-                            "series": [{
-                                "series": {
-                                    "sourceRange": {
-                                        "sources": [{
-                                            "sheetId": 0,
-                                            "startRowIndex": 1,
-                                            "endRowIndex": 4,
-                                            "startColumnIndex": 1,
-                                            "endColumnIndex": 2
-                                        }]
-                                    }
-                                },
-                                "targetAxis": "LEFT"
-                            }]
-                        }
-                    },
-                    "position": {
-                        "overlayPosition": {
-                            "anchorCell": {
-                                "sheetId": 0,
-                                "rowIndex": 6,
-                                "columnIndex": 0
-                            }
-                        }
-                    }
-                }
-            }
-        }]
-
-        # リクエスト送信
-        service.spreadsheets().batchUpdate(
-            spreadsheetId=spreadsheet_id,
-            body={"requests": requests}
-        ).execute()
-
-        st.success("スプレッドシートに棒グラフを作成しました！")
-
-    except Exception as e:
-        st.error(f"棒グラフ作成中にエラーが発生しました: {e}")
-
     if st.button("スプレッドシートの答えを取得"):
         try:
             result = read_from_sheets(sheet_name, "B2")
@@ -211,5 +121,3 @@ def create_bar_chart(sheet_name):
 
 if __name__ == "__main__":
     main()
-
-
