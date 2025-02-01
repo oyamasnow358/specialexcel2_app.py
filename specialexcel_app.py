@@ -70,17 +70,10 @@ def download_spreadsheet():
             status, done = downloader.next_chunk()
 
         file_stream.seek(0)
-
-        st.download_button(
-            label="スプレッドシートをダウンロード",
-            data=file_stream,
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        st.session_state["spreadsheet_data"] = file_stream  # **セッションにデータを保存**
 
     except Exception as e:
         st.error(f"ダウンロード中にエラーが発生しました: {e}")
-
 
 # Streamlit アプリ
 def main():
@@ -113,10 +106,18 @@ def main():
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-    # **ダウンロードボタンを一番下に配置**
+    # **ダウンロードボタン**
     if st.button("スプレッドシートをダウンロード"):
         download_spreadsheet()
 
+    # **ダウンロードデータが準備できたら自動的に表示**
+    if "spreadsheet_data" in st.session_state:
+        st.download_button(
+            label="スプレッドシートを保存",
+            data=st.session_state["spreadsheet_data"],
+            file_name="spreadsheet.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 if __name__ == "__main__":
     main()
