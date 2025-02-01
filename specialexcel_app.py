@@ -3,12 +3,17 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import os
 from google.cloud import storage
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
 
-# 環境変数または直接指定で認証情報ファイルのパスを取得
-credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "config/propane-atrium-449411-e6-e1bccb92a993.json")
-if not os.path.exists(credentials_path):
-    st.error("認証情報ファイルが見つかりません。適切なJSONファイルを指定してください。")
-    st.stop()  # アプリを終了
+# Secrets から認証情報を取得
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["google_credentials"],
+    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+)
+
+# Google Sheets API クライアントを作成
+service = build('sheets', 'v4', credentials=credentials)
 
 # Google Cloud Storage クライアント
 try:
