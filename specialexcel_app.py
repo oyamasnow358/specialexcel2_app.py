@@ -136,8 +136,8 @@ def main():
     st.markdown("---")
 
     # **別のWebアプリへのリンク**
-    st.markdown("自立活動指導支援内容")
-    st.markdown("[別のWebアプリに移動する](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
+    st.markdown("別のWebアプリに移動する")
+    st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
 
 
 if __name__ == "__main__":
