@@ -65,7 +65,18 @@ def main():
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
             st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
 
-           
+            # **スプレッドシートに書き込んだ後に棒グラフを追加する**
+            add_chart_to_sheet()
+        except RuntimeError as e:
+            st.error(f"エラー: {e}")
+
+    if st.button("スプレッドシートの答えを取得"):
+        try:
+            result = read_from_sheets(sheet_name, "B2")
+            st.write(f"スプレッドシートの答え: {result}")
+        except RuntimeError as e:
+            st.error(f"エラー: {e}")
+
     # **ダウンロードボタン**
     if st.button("スプレッドシートをダウンロード"):
         download_spreadsheet()
