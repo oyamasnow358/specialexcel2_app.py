@@ -41,10 +41,11 @@ def write_to_sheets(sheet_name, cell, value):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
-        def trigger_apps_script():
+# Google Apps Script をトリガーする関数
+def trigger_apps_script():
     try:
         # Apps Script Web アプリケーションの URL
-        apps_script_url = "https://specialexcel2apppy-bo6jrng9gyqw5dmfcgwbl5.streamlit.app/"  # 先ほどコピーした URL を貼り付ける
+        apps_script_url = "https://script.google.com/macros/s/AKfycbx9ESucyZYFQ-uhpTET4Bcjo1vXZ1wJMZAUq-BbFVj9q1v-tbSGcFA_bQrd_hQIsv4Jfw/exec"  # 先ほどコピーした URL を貼り付ける
 
         # Apps Script にリクエストを送信
         response = requests.get(apps_script_url)
@@ -110,17 +111,17 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-   if st.button("スプレッドシートに書き込む"):
-    try:
-        for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-            write_to_sheets(sheet_name, f"A{index + 2}", category)
-            write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
-        st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
+    if st.button("スプレッドシートに書き込む"):
+        try:
+            for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
+                write_to_sheets(sheet_name, f"A{index + 2}", category)
+                write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
+            st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
 
-        # Google Apps Script をトリガー
-        trigger_apps_script()
-    except RuntimeError as e:
-        st.error(f"エラー: {e}")
+            # Google Apps Script をトリガー
+            trigger_apps_script()
+        except RuntimeError as e:
+            st.error(f"エラー: {e}")
 
     if st.button("スプレッドシートの答えを取得"):
         try:
