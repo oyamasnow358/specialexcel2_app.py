@@ -45,7 +45,7 @@ def write_to_sheets(sheet_name, cell, value):
 def trigger_apps_script():
     try:
         # Apps Script Web アプリケーションの URL
-        apps_script_url = "https://script.google.com/macros/s/AKfycbx9ESucyZYFQ-uhpTET4Bcjo1vXZ1wJMZAUq-BbFVj9q1v-tbSGcFA_bQrd_hQIsv4Jfw/exec"  # 先ほどコピーした URL を貼り付ける
+        apps_script_url = "https://script.google.com/macros/s/AKfycbyKSWcYKeVzuqHbM5oNjOv6wEDvJsaM8_wMf2CjSTZHlcuGNbqWkcmecjilw6JysCaiVw/exec"  # 先ほどコピーした URL を貼り付ける
 
         # Apps Script にリクエストを送信
         response = requests.get(apps_script_url)
