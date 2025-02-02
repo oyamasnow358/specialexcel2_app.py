@@ -75,23 +75,15 @@ def read_from_sheets(sheet_name, cell):
 def download_spreadsheet():
     try:
         # ファイルのメタデータを取得
-        file_metadata = drive_service.files().get(fileId=spreadsheet_id).execute()
-        file_name = file_metadata["name"] + ".gsheet"  # Googleスプレッドシートファイルとして保存
-        
-        # ファイルのオリジナル Google Sheets ファイル形式を取得
-        request = drive_service.files().get_media(fileId=spreadsheet_id)
-        file_stream = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_stream, request)
+        file_metadata = drive_service.files().get(fileId=spreadsheet_id, fields="name, webViewLink").execute()
+        file_name = file_metadata["name"]
+        web_view_link = file_metadata["webViewLink"]  # スプレッドシートのビューリンク
 
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        file_stream.seek(0)  # バッファの先頭に戻る
-        st.session_state["spreadsheet_data"] = file_stream.read()
-        st.success(f"スプレッドシート '{file_name}' がダウンロード可能になりました！")
+        # ユーザーにダウンロード用リンクを表示
+        st.success(f"スプレッドシート '{file_name}' を以下のリンクからダウンロードしてください。")
+        st.markdown(f"[スプレッドシートをダウンロードする]({web_view_link})")
     except Exception as e:
-        raise RuntimeError(f"スプレッドシートのダウンロード中にエラーが発生しました: {e}")
+        raise RuntimeError(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
 # Streamlit アプリ
 def main():
