@@ -132,6 +132,13 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+  # **区切り線**
+    st.markdown("---")
+
+    # **別のWebアプリへのリンク**
+    st.markdown("自立活動指導支援内容")
+    st.markdown("[別のWebアプリに移動する](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
+
 
 if __name__ == "__main__":
     main()
