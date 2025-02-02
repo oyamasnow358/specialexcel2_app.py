@@ -76,13 +76,10 @@ def download_spreadsheet():
     try:
         # ファイルのメタデータを取得
         file_metadata = drive_service.files().get(fileId=spreadsheet_id).execute()
-        file_name = file_metadata["name"]
-
-        # スプレッドシートをエクスポート（Excel形式）
-        request = drive_service.files().export_media(
-            fileId=spreadsheet_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        file_name = file_metadata["name"] + ".gsheet"  # Googleスプレッドシートファイルとして保存
+        
+        # ファイルのオリジナル Google Sheets ファイル形式を取得
+        request = drive_service.files().get_media(fileId=spreadsheet_id)
         file_stream = io.BytesIO()
         downloader = MediaIoBaseDownload(file_stream, request)
 
