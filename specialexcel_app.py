@@ -55,6 +55,31 @@ def read_from_sheets(sheet_name, cell):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートからの読み取り中にエラーが発生しました: {e}")
 
+# スプレッドシートをダウンロードする
+def download_spreadsheet():
+    try:
+        # ファイルのメタデータを取得
+        file_metadata = drive_service.files().get(fileId=spreadsheet_id).execute()
+        file_name = file_metadata["name"]
+
+        # スプレッドシートをエクスポート（Excel形式）
+        request = drive_service.files().export_media(
+            fileId=spreadsheet_id,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_stream, request)
+
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        file_stream.seek(0)  # バッファの先頭に戻る
+        st.session_state["spreadsheet_data"] = file_stream.read()
+        st.success(f"スプレッドシート '{file_name}' がダウンロード可能になりました！")
+    except Exception as e:
+        raise RuntimeError(f"スプレッドシートのダウンロード中にエラーが発生しました: {e}")
+
 # Streamlit アプリ
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
