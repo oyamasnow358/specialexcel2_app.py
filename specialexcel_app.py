@@ -40,6 +40,21 @@ def write_to_sheets(sheet_name, cell, value):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
+# Googleスプレッドシートからデータを読み取る
+def read_from_sheets(sheet_name, cell):
+    try:
+        sheet_range = f"{sheet_name}!{cell}"
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=sheet_range
+        ).execute()
+        values = result.get("values", [])
+        if not values:
+            return "データが見つかりませんでした"
+        return values[0][0]  # セルの値を返す
+    except Exception as e:
+        raise RuntimeError(f"スプレッドシートからの読み取り中にエラーが発生しました: {e}")
+
 # Streamlit アプリ
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
