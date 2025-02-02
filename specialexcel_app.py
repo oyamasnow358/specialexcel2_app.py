@@ -100,8 +100,8 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-    if st.button("スプレッドシートに書き込む"):
-    try:
+  if st.button("スプレッドシートに書き込む"):
+    try:  # ← ここを適切にインデント
         for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
             write_to_sheets(sheet_name, f"A{index + 2}", category)
             write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
