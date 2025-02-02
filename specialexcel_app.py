@@ -1,5 +1,6 @@
 import streamlit as st
 import io
+import requests
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
@@ -39,6 +40,20 @@ def write_to_sheets(sheet_name, cell, value):
         ).execute()
     except Exception as e:
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
+
+        def trigger_apps_script():
+    try:
+        # Apps Script Web アプリケーションの URL
+        apps_script_url = "https://specialexcel2apppy-bo6jrng9gyqw5dmfcgwbl5.streamlit.app/"  # 先ほどコピーした URL を貼り付ける
+
+        # Apps Script にリクエストを送信
+        response = requests.get(apps_script_url)
+        if response.status_code == 200:
+            st.success("スプレッドシートのプログラムが実行されました！")
+        else:
+            st.error(f"プログラムの実行中にエラーが発生しました: {response.text}")
+    except Exception as e:
+        st.error(f"Apps Script のトリガー中にエラーが発生しました: {e}")
 
 # Googleスプレッドシートからデータを読み取る
 def read_from_sheets(sheet_name, cell):
@@ -95,14 +110,17 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-    if st.button("スプレッドシートに書き込む"):
-        try:
-            for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                write_to_sheets(sheet_name, f"A{index + 2}", category)
-                write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
-            st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
-        except RuntimeError as e:
-            st.error(f"エラー: {e}")
+   if st.button("スプレッドシートに書き込む"):
+    try:
+        for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
+            write_to_sheets(sheet_name, f"A{index + 2}", category)
+            write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
+        st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
+
+        # Google Apps Script をトリガー
+        trigger_apps_script()
+    except RuntimeError as e:
+        st.error(f"エラー: {e}")
 
     if st.button("スプレッドシートの答えを取得"):
         try:
