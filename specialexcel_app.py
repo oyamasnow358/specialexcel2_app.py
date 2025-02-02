@@ -42,86 +42,6 @@ def write_to_sheets(sheet_name, cell, value):
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
 
-# 棒グラフをスプレッドシートに追加する関数
-def add_chart_to_sheet():
-    try:
-        categories = ["認知力・操作", "言語理解", "表出言語","視覚記憶","聴覚記憶","読字","書字","数","運動","生活動作"]
-        requests = [
-            {
-                "addChart": {
-                    "chart": {
-                        "spec": {
-                            "title": "選択肢別の棒グラフ",
-                            "basicChart": {
-                                "chartType": "BAR",
-                                "legendPosition": "BOTTOM_LEGEND",
-                                "axis": [
-                                    {
-                                        "position": "BOTTOM_AXIS",
-                                        "title": "カテゴリー",
-                                    },
-                                    {
-                                        "position": "LEFT_AXIS",
-                                        "title": "選択肢数",
-                                    }
-                                ],
-                                "domains": [
-                                    {
-                                        "domain": {
-                                            "sourceRange": {
-                                                "sources": [
-                                                    {
-                                                        "sheetId": 0,  # シートのID（シート1）
-                                                        "startRowIndex": 1,
-                                                        "endRowIndex": len(categories) + 2,  # カテゴリーの範囲
-                                                        "startColumnIndex": 0,
-                                                        "endColumnIndex": 1
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                ],
-                                "series": [
-                                    {
-                                        "series": {
-                                            "sourceRange": {
-                                                "sources": [
-                                                    {
-                                                        "sheetId": 0,
-                                                        "startRowIndex": 1,
-                                                        "endRowIndex": len(categories) + 2,
-                                                        "startColumnIndex": 1,
-                                                        "endColumnIndex": 2
-                                                    }
-                                                ]
-                                            }
-                                        },
-                                        "targetAxis": "LEFT_AXIS"
-                                    }
-                                ]
-                            }
-                        },
-                        "position": {
-                            "overlayPosition": {
-                                "anchorCell": "D4",  # グラフを表示するセル位置
-                                "offsetXPixels": 0,
-                                "offsetYPixels": 0
-                            }
-                        }
-                    }
-                }
-            }
-        ]
-        # リクエストを実行してグラフを追加
-        service.spreadsheets().batchUpdate(
-            spreadsheetId=spreadsheet_id, body={"requests": requests}
-        ).execute()
-
-        st.success("棒グラフがスプレッドシートに追加されました！")
-    except Exception as error:
-        st.error(f"グラフの作成中にエラーが発生しました: {error}")
-
 
 # Streamlit アプリ
 def main():
@@ -145,18 +65,7 @@ def main():
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
             st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
 
-            # **スプレッドシートに書き込んだ後に棒グラフを追加する**
-            add_chart_to_sheet()
-        except RuntimeError as e:
-            st.error(f"エラー: {e}")
-
-    if st.button("スプレッドシートの答えを取得"):
-        try:
-            result = read_from_sheets(sheet_name, "B2")
-            st.write(f"スプレッドシートの答え: {result}")
-        except RuntimeError as e:
-            st.error(f"エラー: {e}")
-
+           
     # **ダウンロードボタン**
     if st.button("スプレッドシートをダウンロード"):
         download_spreadsheet()
