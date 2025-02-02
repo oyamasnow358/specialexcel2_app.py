@@ -42,42 +42,10 @@ def write_to_sheets(sheet_name, cell, value):
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
 
-# Googleスプレッドシートからデータを取得する
-def read_from_sheets(sheet_name, cell):
-    try:
-        sheet_range = f"{sheet_name}!{cell}"
-        result = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id, range=sheet_range).execute()
-        values = result.get('values', [])
-        return values[0][0] if values else None
-    except Exception as e:
-        raise RuntimeError(f"スプレッドシートの読み取り中にエラーが発生しました: {e}")
-
-
-# GoogleスプレッドシートをExcel形式でダウンロード
-def download_spreadsheet():
-    try:
-        file_id = spreadsheet_id
-        request = drive_service.files().export_media(
-            fileId=file_id,
-            mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        file_stream = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_stream, request)
-
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        file_stream.seek(0)
-        st.session_state["spreadsheet_data"] = file_stream  # **セッションにデータを保存**
-
-    except Exception as e:
-        st.error(f"ダウンロード中にエラーが発生しました: {e}")
-
 # 棒グラフをスプレッドシートに追加する関数
 def add_chart_to_sheet():
     try:
+        categories = ["認知力・操作", "言語理解", "表出言語","視覚記憶","聴覚記憶","読字","書字","数","運動","生活動作"]
         requests = [
             {
                 "addChart": {
@@ -151,8 +119,9 @@ def add_chart_to_sheet():
         ).execute()
 
         st.success("棒グラフがスプレッドシートに追加されました！")
-    except HttpError as error:
+    except Exception as error:
         st.error(f"グラフの作成中にエラーが発生しました: {error}")
+
 
 # Streamlit アプリ
 def main():
@@ -161,7 +130,7 @@ def main():
     sheet_name = "シート1"
 
     categories = ["認知力・操作", "言語理解", "表出言語","視覚記憶","聴覚記憶","読字","書字","数","運動","生活動作"]
-    options = ["0〜3か月", "3〜6か月", "6〜9か月", "9〜12か月","12～18ヶ月","18～24ヶ月","2～3歳","3～4歳","4～5歳","5～6歳","6際～7歳","7歳以上"]
+    options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月","12～18ヶ月","18～24ヶ月","2～3歳","3～4歳","4～5歳","5～6歳","6際～7歳","7歳以上"]
 
     selected_options = {}
 
@@ -175,6 +144,9 @@ def main():
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
             st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
+
+            # **スプレッドシートに書き込んだ後に棒グラフを追加する**
+            add_chart_to_sheet()
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
@@ -198,9 +170,6 @@ def main():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # 棒グラフ追加ボタン
-    if st.button("棒グラフを追加"):
-        add_chart_to_sheet()
 
 if __name__ == "__main__":
     main()
