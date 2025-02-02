@@ -87,7 +87,7 @@ def download_spreadsheet():
 
 # Streamlit アプリ
 def main():
-    st.title("Webアプリ ⇔ スプレッドシート連携")
+    st.title("📈発達段階能力チャート作成📉")
 
     sheet_name = "シート1"
 
@@ -136,7 +136,7 @@ def main():
     st.markdown("---")
 
     # **別のWebアプリへのリンク**
-    st.markdown("別のWebアプリに移動する")
+    st.markdown("関連Webアプリに移動する")
     st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
 
 
