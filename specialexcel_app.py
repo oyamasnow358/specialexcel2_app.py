@@ -26,7 +26,6 @@ client = storage.Client(credentials=credentials)
 # **スプレッドシートのIDをグローバル変数として定義**
 spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
 
-
 # Googleスプレッドシートにデータを書き込む
 def write_to_sheets(sheet_name, cell, value):
     try:
@@ -41,16 +40,14 @@ def write_to_sheets(sheet_name, cell, value):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートへの書き込み中にエラーが発生しました: {e}")
 
-
-
 # Streamlit アプリ
 def main():
     st.title("Webアプリ ⇔ スプレッドシート連携")
 
     sheet_name = "シート1"
 
-    categories = ["認知力・操作", "言語理解", "表出言語","視覚記憶","聴覚記憶","読字","書字","数","運動","生活動作"]
-    options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月","12～18ヶ月","18～24ヶ月","2～3歳","3～4歳","4～5歳","5～6歳","6際～7歳","7歳以上"]
+    categories = ["認知力・操作", "言語理解", "表出言語", "視覚記憶", "聴覚記憶", "読字", "書字", "数", "運動", "生活動作"]
+    options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月", "12～18ヶ月", "18～24ヶ月", "2～3歳", "3～4歳", "4～5歳", "5～6歳", "6際～7歳", "7歳以上"]
 
     selected_options = {}
 
@@ -64,9 +61,6 @@ def main():
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
             st.success("各項目と選択肢がスプレッドシートに書き込まれました！")
-
-            # **スプレッドシートに書き込んだ後に棒グラフを追加する**
-            add_chart_to_sheet()
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
