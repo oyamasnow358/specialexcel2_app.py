@@ -42,6 +42,7 @@ def write_to_sheets(sheet_name, cell, value):
 def main():
     st.title("📉発達段階能力チャート作成📈")
     st.subheader("※スマホで利用の人はレーダーチャート（グラフ）を作成できません。その他の機能は使えます。")
+    st.info("一番下の３つのボタンは、まず「スプレッドシートに書き込む」を押してから使用してください")
 
     sheet_name = "シート1"
 
