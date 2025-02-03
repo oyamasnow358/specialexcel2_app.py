@@ -103,8 +103,6 @@ def download_spreadsheet():
         if copied_file_link:
             st.success("スプレッドシートのコピーを開いて、スクリプトを実行してください。")
             st.markdown(f"[スプレッドシートを開く]({copied_file_link})")
-            st.warning("スプレッドシートを開いた後に、以下のボタンを押してください。")
-
         else:
                     st.error("スプレッドシートのコピーが正しく作成されませんでした。")
     except Exception as e:
@@ -141,6 +139,161 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
+
+def update_sheet():
+    try:
+        # シート1からカテゴリ名と年齢範囲を取得
+        sheet1_data = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!A3:B13"
+        ).execute().get('values', [])
+
+        category_names = [row[0].strip() for row in sheet1_data]
+        age_range = [row[1].strip() for row in sheet1_data]
+
+        # 年齢を数値に変換
+        age_categories = {
+            "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
+            "12～18ヶ月": 5, "18～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
+            "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
+        }
+        converted_values = [[age_categories.get(age, "")] for age in age_range]
+
+        # シート1の C3:C13 に値を設定
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!C3:C13",
+            valueInputOption="RAW",
+            body={"values": converted_values}
+        ).execute()
+
+        # シート2のデータを取得
+        sheet2_data = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range="シート2!A1:V"
+        ).execute().get('values', [])
+
+        headers = [h.strip() for h in sheet2_data[0]]
+        data_map = {}
+        for row in sheet2_data[1:]:
+            age_step = row[21] if len(row) > 21 else ""
+            if not age_step.isdigit():
+                continue
+            for j, key in enumerate(headers):
+                if key not in data_map:
+                    data_map[key] = {}
+                data_map[key][int(age_step)] = row[j]
+
+        # シート1のD3:D13に値を設定
+        results = [[data_map.get(category, {}).get(age[0], "該当なし")]
+                   for category, age in zip(category_names, converted_values)]
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!D3:D13",
+            valueInputOption="RAW",
+            body={"values": results}
+        ).execute()
+
+        # A3:C13をA18:C28にコピー
+        sheet1_copy_data = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!A3:C13"
+        ).execute().get('values', [])
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!A18:C28",
+            valueInputOption="RAW",
+            body={"values": sheet1_copy_data}
+        ).execute()
+
+        # C18:C28の値を+1
+        c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!C18:C28",
+            valueInputOption="RAW",
+            body={"values": c_values}
+        ).execute()
+
+        # D18:D28にデータを出力
+        new_results = [[data_map.get(row[0], {}).get(int(row[2]), "該当なし")]
+                       for row in sheet1_copy_data if len(row) > 2 and row[2].isdigit()]
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range="シート1!D18:D28",
+            valueInputOption="RAW",
+            body={"values": new_results}
+        ).execute()
+
+        # グラフを削除
+        sheets_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheet_id = next(
+            sheet['properties']['sheetId']
+            for sheet in sheets_metadata['sheets']
+            if sheet['properties']['title'] == "シート1"
+        )
+        requests = [{
+            "deleteEmbeddedObject": {"objectId": chart['chartId']}
+        } for chart in sheets_metadata['sheets'][0]['charts']]
+        if requests:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body={"requests": requests}
+            ).execute()
+
+        # レーダーチャートを作成
+        chart_request = {
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "項目別発達段階（能力レーダーチャート）",
+                        "basicChart": {
+                            "chartType": "RADAR",
+                            "legendPosition": "RIGHT_LEGEND",
+                            "axis": [{"position": "BOTTOM_AXIS", "title": "カテゴリ別"}],
+                            "domains": [{
+                                "domain": {
+                                    "sourceRange": {
+                                        "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]
+                                    }
+                                }
+                            }],
+                            "series": [{
+                                "series": {
+                                    "sourceRange": {
+                                        "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]
+                                    }
+                                }
+                            }]
+                        }
+                    },
+                    "position": {
+                        "overlayPosition": {
+                            "anchorCell": {"sheetId": sheet_id, "rowIndex": 2, "columnIndex": 5},
+                            "offsetXPixels": 0,
+                            "offsetYPixels": 0
+                        }
+                    }
+                }
+            }
+        }
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body={"requests": [chart_request]}
+        ).execute()
+
+    except Exception as e:
+        raise RuntimeError(f"スプレッドシートの更新中にエラーが発生しました: {e}")
+
+
+# Streamlit ボタンに新規機能を追加
+if st.button("シートを更新"):
+    try:
+        update_sheet()
+        st.success("スプレッドシートが更新されました！")
+    except RuntimeError as e:
+        st.error(f"エラー: {e}")
+        
     if st.button("スプレッドシートに書き込む"):
         try:
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
