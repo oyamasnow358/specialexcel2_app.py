@@ -148,30 +148,40 @@ def main():
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
 
-    # ダウンロード機能
-    if st.button("スプレッドシートをダウンロード"):
-        try:
-            # Google Drive API を使用してスプレッドシートをエクスポート
-            request = drive_service.files().export_media(
-                fileId=spreadsheet_id,
-                mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            file_data = io.BytesIO()
-            downloader = MediaIoBaseDownload(file_data, request)
-            done = False
-            while not done:
-                status, done = downloader.next_chunk()
+   # ダウンロード機能
+if st.button("スプレッドシートを開く"):
+    try:
+        # スプレッドシートのURLを生成してブラウザで開けるようにする
+        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+        st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
 
-            file_data.seek(0)
-            st.download_button(
-                label="スプレッドシートをダウンロード",
-                data=file_data,
-                file_name="spreadsheet.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        except Exception as e:
-            st.error(f"スプレッドシートのダウンロード中にエラーが発生しました: {e}")
+        st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
+    except Exception as e:
+        st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
+# Excelダウンロード機能
+if st.button("EXCELを保存"):
+    try:
+        # Google Drive API を使用してスプレッドシートをエクスポート
+        request = drive_service.files().export_media(
+            fileId=spreadsheet_id,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        file_data = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_data, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+        file_data.seek(0)
+        st.download_button(
+            label="EXCELを保存",
+            data=file_data,
+            file_name="spreadsheet.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        st.error(f"Excel保存中にエラーが発生しました: {e}")
              # **区切り線**
     st.markdown("---")
 
