@@ -87,13 +87,42 @@ def copy_spreadsheet():
 # スプレッドシートをダウンロードする（コピーを作成して開く）
 def download_spreadsheet():
     try:
-        copied_file_link = copy_spreadsheet()  # コピーを作成し、そのリンクを取得
+        copied_file_id, copied_file_link = copy_spreadsheet()  # コピーを作成し、IDとリンクを取得
 
-        # ユーザーにコピーのダウンロード用リンクを表示
-        st.success(f"スプレッドシートのコピーを以下のリンクから開いてください。")
-        st.markdown(f"[スプレッドシートを開く]({copied_file_link})")
+        if copied_file_link:
+            st.success("スプレッドシートのコピーを開いて、スクリプトを実行してください。")
+            st.markdown(f"[スプレッドシートを開く]({copied_file_link})")
+            st.warning("スプレッドシートを開いた後に、以下のボタンを押してください。")
+
+            if st.button("スクリプト実行後、Excelとしてダウンロード"):
+                excel_file = export_to_excel(copied_file_id)
+                if excel_file:
+                    st.download_button(
+                        label="Excelをダウンロード",
+                        data=excel_file,
+                        file_name="spreadsheet.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                else:
+                    st.error("Excelのエクスポートに失敗しました。")
     except Exception as e:
         raise RuntimeError(f"スプレッドシートのダウンロードリンク生成中にエラーが発生しました: {e}")
+
+def export_to_excel(file_id):
+    try:
+        request = drive_service.files().export_media(fileId=file_id, mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        file_data = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_data, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        file_data.seek(0)
+        return file_data
+    except Exception as e:
+        st.error(f"Excel変換中にエラーが発生しました: {e}")
+        return None
+
+
 
 # Streamlit アプリ
 def main():
@@ -143,6 +172,8 @@ def main():
             file_name="spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+
 
   # **区切り線**
     st.markdown("---")
