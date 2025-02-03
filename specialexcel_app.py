@@ -245,7 +245,13 @@ def update_sheet():
     except Exception as e:
         raise RuntimeError(f"スプレッドシートの更新中にエラーが発生しました: {e}")
 
-
+# Streamlit ボタンに新規機能を追加
+if st.button("シートを更新"):
+    try:
+        update_sheet()
+        st.success("スプレッドシートが更新されました！")
+    except RuntimeError as e:
+        st.error(f"エラー: {e}")
 
     if st.button("スプレッドシートに書き込む"):
         try:
