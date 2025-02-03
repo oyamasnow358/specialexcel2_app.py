@@ -55,7 +55,7 @@ def main():
 
     if st.button("スプレッドシートに書き込む"):
         try:
-            # 元の機能: 各カテゴリと選択肢をスプレッドシートに書き込む
+            # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
@@ -125,55 +125,54 @@ def main():
                 valueInputOption="RAW",
                 body={"values": sheet1_copy_data}
             ).execute()
-try:
-    # C18:C28の値を+1（最大値12を超えない）
-    updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range="シート1!C18:C28",
-        valueInputOption="RAW",
-        body={"values": updated_c_values}
-    ).execute()
 
-    # D18:D28にシート2のデータを基に対応値を設定
-    new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
-                   for row, c_value in zip(sheet1_copy_data, updated_c_values) if len(row) > 2 and c_value[0] != ""]
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range="シート1!D18:D28",
-        valueInputOption="RAW",
-        body={"values": new_results}
-    ).execute()
+            # C18:C28の値を+1（最大値12を超えない）
+            updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
+            service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range="シート1!C18:C28",
+                valueInputOption="RAW",
+                body={"values": updated_c_values}
+            ).execute()
 
-except Exception as e:
-    st.error(f"エラーが発生しました: {e}")
+            # D18:D28にシート2のデータを基に対応値を設定
+            new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
+                           for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""]
+            service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id,
+                range="シート1!D18:D28",
+                valueInputOption="RAW",
+                body={"values": new_results}
+            ).execute()
 
+        except Exception as e:
+            st.error(f"エラーが発生しました: {e}")
 
-# ダウンロード機能
-if st.button("スプレッドシートをダウンロード"):
-    try:
-        # Google Drive API を使用してスプレッドシートをエクスポート
-        request = drive_service.files().export_media(
-            fileId=spreadsheet_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        file_data = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_data, request)
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
+    # ダウンロード機能
+    if st.button("スプレッドシートをダウンロード"):
+        try:
+            # Google Drive API を使用してスプレッドシートをエクスポート
+            request = drive_service.files().export_media(
+                fileId=spreadsheet_id,
+                mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            file_data = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_data, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
 
-        file_data.seek(0)
-        st.download_button(
-            label="スプレッドシートをダウンロード",
-            data=file_data,
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    except Exception as e:
-        st.error(f"スプレッドシートのダウンロード中にエラーが発生しました: {e}")
-        
-  # **区切り線**
+            file_data.seek(0)
+            st.download_button(
+                label="スプレッドシートをダウンロード",
+                data=file_data,
+                file_name="spreadsheet.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"スプレッドシートのダウンロード中にエラーが発生しました: {e}")
+
+             # **区切り線**
     st.markdown("---")
 
     # **別のWebアプリへのリンク**
@@ -181,5 +180,7 @@ if st.button("スプレッドシートをダウンロード"):
     st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
 
 
+
 if __name__ == "__main__":
     main()
+ 
