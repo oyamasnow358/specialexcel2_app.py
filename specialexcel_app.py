@@ -78,16 +78,16 @@ def copy_spreadsheet():
         copied_file_id = copied_file["id"]
         copied_file_metadata = drive_service.files().get(fileId=copied_file_id, fields="webViewLink").execute()
         copied_file_link = copied_file_metadata["webViewLink"]
-        return copied_file_link
+        return copied_file_id, copied_file_link  # 修正: IDも返す
     except Exception as e:
         st.error(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
-        return None
+        return None, None
 
 
 # スプレッドシートをダウンロードする（コピーを作成して開く）
 def download_spreadsheet():
     try:
-        copied_file_id, copied_file_link = copy_spreadsheet()  # コピーを作成し、IDとリンクを取得
+        copied_file_id, copied_file_link = copy_spreadsheet()  # 修正: IDとリンクを受け取る
 
         if copied_file_link:
             st.success("スプレッドシートのコピーを開いて、スクリプトを実行してください。")
@@ -95,16 +95,19 @@ def download_spreadsheet():
             st.warning("スプレッドシートを開いた後に、以下のボタンを押してください。")
 
             if st.button("スクリプト実行後、Excelとしてダウンロード"):
-                excel_file = export_to_excel(copied_file_id)
-                if excel_file:
-                    st.download_button(
-                        label="Excelをダウンロード",
-                        data=excel_file,
-                        file_name="spreadsheet.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                if copied_file_id:  # 修正: IDがない場合のチェック
+                    excel_file = export_to_excel(copied_file_id)
+                    if excel_file:
+                        st.download_button(
+                            label="Excelをダウンロード",
+                            data=excel_file,
+                            file_name="spreadsheet.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    else:
+                        st.error("Excelのエクスポートに失敗しました。")
                 else:
-                    st.error("Excelのエクスポートに失敗しました。")
+                    st.error("スプレッドシートのコピーが正しく作成されませんでした。")
     except Exception as e:
         raise RuntimeError(f"スプレッドシートのダウンロードリンク生成中にエラーが発生しました: {e}")
 
