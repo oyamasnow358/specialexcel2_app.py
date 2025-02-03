@@ -225,25 +225,9 @@ def update_sheet():
             body={"values": new_results}
         ).execute()
 
-        # グラフを削除
-        sheets_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-        sheet_id = next(
-            sheet['properties']['sheetId']
-            for sheet in sheets_metadata['sheets']
-            if sheet['properties']['title'] == "シート1"
-        )
-        requests = [{
-            "deleteEmbeddedObject": {"objectId": chart['chartId']}
-        } for chart in sheets_metadata['sheets'][0]['charts']]
-        if requests:
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=spreadsheet_id,
-                body={"requests": requests}
-            ).execute()
-
-        
     except Exception as e:
         raise RuntimeError(f"スプレッドシートの更新中にエラーが発生しました: {e}")
+
 
 # Streamlit ボタンに新規機能を追加
 if st.button("シートを更新"):
