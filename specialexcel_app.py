@@ -241,63 +241,12 @@ def update_sheet():
                 body={"requests": requests}
             ).execute()
 
-       # レーダーチャートではなくLINEチャートを作成
-chart_request = {
-    "addChart": {
-        "chart": {
-            "spec": {
-                "title": "項目別発達段階（能力チャート）",
-                "basicChart": {
-                    "chartType": "LINE",  # サポートされているグラフタイプに変更
-                    "legendPosition": "RIGHT_LEGEND",
-                    "axis": [
-                        {"position": "BOTTOM_AXIS", "title": "カテゴリ別"},
-                        {"position": "LEFT_AXIS", "title": "能力値"}
-                    ],
-                    "domains": [{
-                        "domain": {
-                            "sourceRange": {
-                                "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]
-                            }
-                        }
-                    }],
-                    "series": [{
-                        "series": {
-                            "sourceRange": {
-                                "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]
-                            }
-                        }
-                    }]
-                }
-            },
-            "position": {
-                "overlayPosition": {
-                    "anchorCell": {"sheetId": sheet_id, "rowIndex": 2, "columnIndex": 5},
-                    "offsetXPixels": 0,
-                    "offsetYPixels": 0
-                }
-            }
-        }
-    }
-}
-service.spreadsheets().batchUpdate(
-    spreadsheetId=spreadsheet_id,
-    body={"requests": [chart_request]}
-).execute()
-
-
+        
     except Exception as e:
         raise RuntimeError(f"スプレッドシートの更新中にエラーが発生しました: {e}")
 
 
-# Streamlit ボタンに新規機能を追加
-if st.button("シートを更新"):
-    try:
-        update_sheet()
-        st.success("スプレッドシートが更新されました！")
-    except RuntimeError as e:
-        st.error(f"エラー: {e}")
-        
+
     if st.button("スプレッドシートに書き込む"):
         try:
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
