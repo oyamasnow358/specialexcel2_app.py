@@ -157,3 +157,35 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+    #if st.button("スプレッドシートの答えを取得"):
+       ##### st.error(f"エラー: {e}")
+
+
+
+    # **ダウンロードボタン**
+    if st.button("スプレッドシートをダウンロード"):
+        download_spreadsheet()
+
+    # **ダウンロードデータが準備できたら自動的に表示**
+    if "spreadsheet_data" in st.session_state:
+        st.download_button(
+            label="スプレッドシートを保存",
+            data=st.session_state["spreadsheet_data"],
+            file_name="spreadsheet.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+
+
+  # **区切り線**
+    st.markdown("---")
+
+    # **別のWebアプリへのリンク**
+    st.markdown("関連Webアプリに移動する")
+    st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
+
+
+if __name__ == "__main__":
+    main()
