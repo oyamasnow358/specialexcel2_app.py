@@ -53,9 +53,9 @@ def main():
     for index, category in enumerate(categories, start=1):
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
-
+　　　　
+st.write("このボタンを押してから下のボタンを使用してください")
     if st.button("スプレッドシートに書き込む"):
-        st.subheader("このボタンを押してから下のボタンを使用してください")
         try:
             # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
