@@ -71,19 +71,31 @@ def read_from_sheets(sheet_name, cell):
     except Exception as e:
         raise RuntimeError(f"スプレッドシートからの読み取り中にエラーが発生しました: {e}")
 
-# スプレッドシートをダウンロードする
+        # スプレッドシートのコピーを作成する関数
+def copy_spreadsheet():
+    try:
+        # コピーを作成
+        copied_file = drive_service.files().copy(fileId=spreadsheet_id, body={"name": "コピー - オリジナル"}).execute()
+        copied_file_id = copied_file["id"]
+
+        # コピーしたスプレッドシートのURLを取得
+        copied_file_metadata = drive_service.files().get(fileId=copied_file_id, fields="webViewLink").execute()
+        copied_file_link = copied_file_metadata["webViewLink"]
+
+        return copied_file_link
+    except Exception as e:
+        raise RuntimeError(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
+
+# スプレッドシートをダウンロードする（コピーを作成して開く）
 def download_spreadsheet():
     try:
-        # ファイルのメタデータを取得
-        file_metadata = drive_service.files().get(fileId=spreadsheet_id, fields="name, webViewLink").execute()
-        file_name = file_metadata["name"]
-        web_view_link = file_metadata["webViewLink"]  # スプレッドシートのビューリンク
+        copied_file_link = copy_spreadsheet()  # コピーを作成し、そのリンクを取得
 
-        # ユーザーにダウンロード用リンクを表示
-        st.success(f"スプレッドシート '{file_name}' を以下のリンクからダウンロードしてください。")
-        st.markdown(f"[スプレッドシートをダウンロードする]({web_view_link})")
+        # ユーザーにコピーのダウンロード用リンクを表示
+        st.success(f"スプレッドシートのコピーを以下のリンクから開いてください。")
+        st.markdown(f"[スプレッドシートを開く]({copied_file_link})")
     except Exception as e:
-        raise RuntimeError(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
+        raise RuntimeError(f"スプレッドシートのダウンロードリンク生成中にエラーが発生しました: {e}")
 
 # Streamlit アプリ
 def main():
@@ -118,6 +130,8 @@ def main():
             st.write(f"スプレッドシートの答え: {result}")
         except RuntimeError as e:
             st.error(f"エラー: {e}")
+
+
 
     # **ダウンロードボタン**
     if st.button("スプレッドシートをダウンロード"):
