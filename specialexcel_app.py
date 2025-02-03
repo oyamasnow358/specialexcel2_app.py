@@ -41,6 +41,7 @@ def write_to_sheets(sheet_name, cell, value):
 
 def main():
     st.title("発達段階能力チャート作成")
+    st.subheader("スマホで利用の人はレーダーチャート（グラフ）を作成できません")
 
     sheet_name = "シート1"
 
@@ -53,7 +54,8 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-    if st.button("スプレッドシートに書き込む","これを押してから下のボタンを押して下さい"):
+    if st.button("スプレッドシートに書き込む"
+    "これを押してから下のボタンを押して下さい"):
         try:
             # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
@@ -180,7 +182,7 @@ def main():
             file_name="spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.info("(レーダーチャートは反映されません。")
+        st.info("レーダーチャートは反映されません。")
      except Exception as e:
         st.error(f"Excel保存中にエラーが発生しました: {e}")
              # **区切り線**
