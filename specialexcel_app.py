@@ -155,8 +155,6 @@ def main():
         except RuntimeError as e:
             st.error(f"エラー: {e}")
 
-if __name__ == "__main__":
-    main()
 
 
     #if st.button("スプレッドシートの答えを取得"):
