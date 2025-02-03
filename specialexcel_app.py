@@ -74,17 +74,15 @@ def read_from_sheets(sheet_name, cell):
         # スプレッドシートのコピーを作成する関数
 def copy_spreadsheet():
     try:
-        # コピーを作成
         copied_file = drive_service.files().copy(fileId=spreadsheet_id, body={"name": "コピー - オリジナル"}).execute()
         copied_file_id = copied_file["id"]
-
-        # コピーしたスプレッドシートのURLを取得
         copied_file_metadata = drive_service.files().get(fileId=copied_file_id, fields="webViewLink").execute()
         copied_file_link = copied_file_metadata["webViewLink"]
-
         return copied_file_link
     except Exception as e:
-        raise RuntimeError(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
+        st.error(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
+        return None
+
 
 # スプレッドシートをダウンロードする（コピーを作成して開く）
 def download_spreadsheet():
