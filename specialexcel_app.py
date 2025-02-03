@@ -241,46 +241,50 @@ def update_sheet():
                 body={"requests": requests}
             ).execute()
 
-        # レーダーチャートを作成
-        chart_request = {
-            "addChart": {
-                "chart": {
-                    "spec": {
-                        "title": "項目別発達段階（能力レーダーチャート）",
-                        "basicChart": {
-                            "chartType": "RADAR",
-                            "legendPosition": "RIGHT_LEGEND",
-                            "axis": [{"position": "BOTTOM_AXIS", "title": "カテゴリ別"}],
-                            "domains": [{
-                                "domain": {
-                                    "sourceRange": {
-                                        "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]
-                                    }
-                                }
-                            }],
-                            "series": [{
-                                "series": {
-                                    "sourceRange": {
-                                        "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]
-                                    }
-                                }
-                            }]
+       # レーダーチャートではなくLINEチャートを作成
+chart_request = {
+    "addChart": {
+        "chart": {
+            "spec": {
+                "title": "項目別発達段階（能力チャート）",
+                "basicChart": {
+                    "chartType": "LINE",  # サポートされているグラフタイプに変更
+                    "legendPosition": "RIGHT_LEGEND",
+                    "axis": [
+                        {"position": "BOTTOM_AXIS", "title": "カテゴリ別"},
+                        {"position": "LEFT_AXIS", "title": "能力値"}
+                    ],
+                    "domains": [{
+                        "domain": {
+                            "sourceRange": {
+                                "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]
+                            }
                         }
-                    },
-                    "position": {
-                        "overlayPosition": {
-                            "anchorCell": {"sheetId": sheet_id, "rowIndex": 2, "columnIndex": 5},
-                            "offsetXPixels": 0,
-                            "offsetYPixels": 0
+                    }],
+                    "series": [{
+                        "series": {
+                            "sourceRange": {
+                                "sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]
+                            }
                         }
-                    }
+                    }]
+                }
+            },
+            "position": {
+                "overlayPosition": {
+                    "anchorCell": {"sheetId": sheet_id, "rowIndex": 2, "columnIndex": 5},
+                    "offsetXPixels": 0,
+                    "offsetYPixels": 0
                 }
             }
         }
-        service.spreadsheets().batchUpdate(
-            spreadsheetId=spreadsheet_id,
-            body={"requests": [chart_request]}
-        ).execute()
+    }
+}
+service.spreadsheets().batchUpdate(
+    spreadsheetId=spreadsheet_id,
+    body={"requests": [chart_request]}
+).execute()
+
 
     except Exception as e:
         raise RuntimeError(f"スプレッドシートの更新中にエラーが発生しました: {e}")
