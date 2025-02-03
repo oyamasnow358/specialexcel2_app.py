@@ -105,19 +105,7 @@ def download_spreadsheet():
             st.markdown(f"[スプレッドシートを開く]({copied_file_link})")
             st.warning("スプレッドシートを開いた後に、以下のボタンを押してください。")
 
-            if st.button("スクリプト実行後、Excelとしてダウンロード"):
-                if copied_file_id:  # 修正: IDがない場合のチェック
-                    excel_file = export_to_excel(copied_file_id)
-                    if excel_file:
-                        st.download_button(
-                            label="Excelをダウンロード",
-                            data=excel_file,
-                            file_name="spreadsheet.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                    else:
-                        st.error("Excelのエクスポートに失敗しました。")
-                else:
+        else:
                     st.error("スプレッドシートのコピーが正しく作成されませんでした。")
     except Exception as e:
         raise RuntimeError(f"スプレッドシートのダウンロードリンク生成中にエラーが発生しました: {e}")
