@@ -145,6 +145,8 @@ service.spreadsheets().values().update(
     valueInputOption="RAW",
     body={"values": new_results}
 ).execute()
+except Exception as e:
+    st.error(f"エラーが発生しました: {e}")
 
 # ダウンロード機能
 if st.button("スプレッドシートをダウンロード"):
