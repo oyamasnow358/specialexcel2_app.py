@@ -53,7 +53,7 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-    if st.button("スプレッドシートに書き込む"):
+    if st.button("スプレッドシートに書き込む（これを押してから下記のボタンを押して下さい）"):
         try:
             # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
@@ -160,7 +160,7 @@ def main():
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
 # Excelダウンロード機能
-    if st.button("EXCELを保存"):
+    if st.button("EXCELを保存(レーダーチャートは反映されません)"):
      try:
         # Google Drive API を使用してスプレッドシートをエクスポート
         request = drive_service.files().export_media(
@@ -175,7 +175,7 @@ def main():
 
         file_data.seek(0)
         st.download_button(
-            label="EXCELを保存",
+            label="PCに結果を保存",
             data=file_data,
             file_name="spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
