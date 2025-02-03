@@ -1,6 +1,10 @@
 import streamlit as st
 import io
 import requests
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
@@ -36,7 +40,7 @@ def write_to_sheets(sheet_name, cell, value):
     ).execute()
 
 def main():
-    st.title("\ud83d\udcc8発達段階能力チャート作成\ud83d\udcc9")
+    st.title("発達段階能力チャート作成")
 
     sheet_name = "シート1"
 
