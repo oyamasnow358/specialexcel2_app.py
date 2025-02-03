@@ -126,7 +126,16 @@ def main():
                 body={"values": sheet1_copy_data}
             ).execute()
 
-           # D18:D28にシート2のデータを基に新しい対応値を設定
+           # C18:C28の値を+1（最大値12を超えない）
+c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
+service.spreadsheets().values().update(
+    spreadsheetId=spreadsheet_id,
+    range="シート1!C18:C28",
+    valueInputOption="RAW",
+    body={"values": c_values}
+).execute()
+
+# D18:D28にシート2のデータを基に新しい対応値を設定
 updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
 new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
                for row, c_value in zip(sheet1_copy_data, updated_c_values) if len(row) > 2 and c_value[0] != ""]
