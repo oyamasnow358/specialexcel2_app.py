@@ -148,21 +148,16 @@ def main():
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
 
-if st.button("スプレッドシートに書き込む"):
+    if st.button("スプレッドシートに書き込む"):
         try:
-            # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
 
-            # 以下は既存の処理
-            # 年齢カテゴリのマッピング
-            # ... (省略)
-            
+            st.success("スプレッドシートに書き込みました！")
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
 
-    # 「スプレッドシートを開く」ボタンをここに移動
     if st.button("スプレッドシートを開く"):
         try:
             spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
@@ -171,10 +166,8 @@ if st.button("スプレッドシートに書き込む"):
         except Exception as e:
             st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
-    # 「EXCELを保存」ボタンをここに移動
     if st.button("EXCELを保存"):
         try:
-            # Google Drive API を使用してスプレッドシートをエクスポート
             request = drive_service.files().export_media(
                 fileId=spreadsheet_id,
                 mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
