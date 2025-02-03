@@ -125,7 +125,7 @@ def main():
                 valueInputOption="RAW",
                 body={"values": sheet1_copy_data}
             ).execute()
-
+try
              # C18:C28の値を+1（最大値12を超えない）
     updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
     service.spreadsheets().values().update(
