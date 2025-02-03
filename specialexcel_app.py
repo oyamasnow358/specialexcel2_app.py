@@ -60,41 +60,6 @@ def main():
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
 
-                  # ダウンロード機能
-if st.button("スプレッドシートを開く"):
-    try:
-        # スプレッドシートのURLを生成してブラウザで開けるようにする
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
-        st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
-
-        st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
-    except Exception as e:
-        st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
-
-# Excelダウンロード機能
-if st.button("EXCELを保存"):
-    try:
-        # Google Drive API を使用してスプレッドシートをエクスポート
-        request = drive_service.files().export_media(
-            fileId=spreadsheet_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        file_data = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_data, request)
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
-
-        file_data.seek(0)
-        st.download_button(
-            label="EXCELを保存",
-            data=file_data,
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    except Exception as e:
-        st.error(f"Excel保存中にエラーが発生しました: {e}")
-
             # 年齢カテゴリのマッピング
             age_categories = {
                 "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
@@ -183,6 +148,52 @@ if st.button("EXCELを保存"):
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
 
+if st.button("スプレッドシートに書き込む"):
+        try:
+            # 各カテゴリと選択肢をスプレッドシートに書き込む
+            for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
+                write_to_sheets(sheet_name, f"A{index + 2}", category)
+                write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
+
+            # 以下は既存の処理
+            # 年齢カテゴリのマッピング
+            # ... (省略)
+            
+        except Exception as e:
+            st.error(f"エラーが発生しました: {e}")
+
+    # 「スプレッドシートを開く」ボタンをここに移動
+    if st.button("スプレッドシートを開く"):
+        try:
+            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+            st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
+            st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
+        except Exception as e:
+            st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
+
+    # 「EXCELを保存」ボタンをここに移動
+    if st.button("EXCELを保存"):
+        try:
+            # Google Drive API を使用してスプレッドシートをエクスポート
+            request = drive_service.files().export_media(
+                fileId=spreadsheet_id,
+                mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            file_data = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_data, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+
+            file_data.seek(0)
+            st.download_button(
+                label="EXCELを保存",
+                data=file_data,
+                file_name="spreadsheet.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"Excel保存中にエラーが発生しました: {e}")
  
              # **区切り線**
     st.markdown("---")
