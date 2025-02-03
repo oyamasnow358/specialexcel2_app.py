@@ -35,20 +35,8 @@ def write_to_sheets(sheet_name, cell, value):
         body={"values": [[value]]}
     ).execute()
 
-def read_from_sheets(sheet_name, cell):
-    result = service.spreadsheets().values().get(
-        spreadsheetId=spreadsheet_id,
-        range=f"{sheet_name}!{cell}"
-    ).execute()
-    return result.get('values', [["データなし"]])[0][0]
-
-def trigger_apps_script():
-    # 必要に応じてGoogle Apps Scriptをトリガーするロジックを追加
-    pass
-
-# Streamlit アプリ
 def main():
-    st.title("📈発達段階能力チャート作成📉")
+    st.title("\ud83d\udcc8発達段階能力チャート作成\ud83d\udcc9")
 
     sheet_name = "シート1"
 
@@ -68,7 +56,14 @@ def main():
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
                 write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
 
-            # 新しい機能を実行
+            # 年齢カテゴリのマッピング
+            age_categories = {
+                "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
+                "12～18ヶ月": 5, "18～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
+                "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
+            }
+
+            # シート1のデータを取得
             sheet1_data = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
                 range="シート1!A3:B13"
@@ -77,13 +72,10 @@ def main():
             category_names = [row[0].strip() for row in sheet1_data]
             age_range = [row[1].strip() for row in sheet1_data]
 
-            age_categories = {
-                "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
-                "12～18ヶ月": 5, "18～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
-                "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
-            }
+            # 年齢を数値に変換
             converted_values = [[age_categories.get(age, "")] for age in age_range]
 
+            # シート1のC3:C13に数値を設定
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range="シート1!C3:C13",
@@ -91,6 +83,7 @@ def main():
                 body={"values": converted_values}
             ).execute()
 
+            # シート2のデータを取得
             sheet2_data = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
                 range="シート2!A1:V"
@@ -107,6 +100,7 @@ def main():
                         data_map[key] = {}
                     data_map[key][int(age_step)] = row[j]
 
+            # シート1のD3:D13に対応する値を設定
             results = [[data_map.get(category, {}).get(age[0], "該当なし")]
                        for category, age in zip(category_names, converted_values)]
             service.spreadsheets().values().update(
@@ -116,6 +110,7 @@ def main():
                 body={"values": results}
             ).execute()
 
+            # A3:C13をA18:C28にコピー
             sheet1_copy_data = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
                 range="シート1!A3:C13"
@@ -127,6 +122,7 @@ def main():
                 body={"values": sheet1_copy_data}
             ).execute()
 
+            # C18:C28の値を+1（最大値12を超えない）
             c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
@@ -135,6 +131,7 @@ def main():
                 body={"values": c_values}
             ).execute()
 
+            # D18:D28に新しい対応値を設定
             new_results = [[data_map.get(row[0], {}).get(int(row[2]), "該当なし")]
                            for row in sheet1_copy_data if len(row) > 2 and row[2].isdigit()]
             service.spreadsheets().values().update(
@@ -145,36 +142,14 @@ def main():
             ).execute()
 
             st.success("すべての処理が正常に完了しました！")
-        except RuntimeError as e:
+        except Exception as e:
             st.error(f"エラー: {e}")
 
-    if st.button("スプレッドシートの答えを取得"):
-        try:
-            result = read_from_sheets(sheet_name, "B2")
-            st.write(f"スプレッドシートの答え: {result}")
-        except RuntimeError as e:
-            st.error(f"エラー: {e}")
+    st.markdown("---")
 
-
-
-    #if st.button("スプレッドシートの答えを取得"):
-       ##### st.error(f"エラー: {e}")
-
-
-
-    # **ダウンロードボタン**
+    # スプレッドシートをダウンロードする機能
     if st.button("スプレッドシートをダウンロード"):
-        download_spreadsheet()
-
-    # **ダウンロードデータが準備できたら自動的に表示**
-    if "spreadsheet_data" in st.session_state:
-        st.download_button(
-            label="スプレッドシートを保存",
-            data=st.session_state["spreadsheet_data"],
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
+        st.info("ダウンロード機能は未実装です。")
 
 
   # **区切り線**
