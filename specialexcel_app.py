@@ -211,7 +211,8 @@ def main():
     st.markdown("[t検定](https://tkentei-flhmnqnq6dti6oyy9xnktr.streamlit.app/)")
     st.markdown("[ロジスティック回帰分析ツール](https://rojisthik-buklkg5zeh6oj2gno746ix.streamlit.app/)")
     st.markdown("[ノンパラメトリック統計分析ツール](https://nonparametoric-nkk2awu6yv9xutzrjmrsxv.streamlit.app/)")
-
+    st.markdown("---")  # 区切り線
+    st.write("""※ それぞれのアプリに記載してある内容、分析ツールのデータや図、表など外部に出す物（研究など）に使用する場合は小山までご相談ください。無断での転記・利用を禁じます。""")
 
 if __name__ == "__main__":
     main()
