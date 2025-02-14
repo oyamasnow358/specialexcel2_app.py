@@ -149,6 +149,8 @@ def main():
 
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
+    
+    st.markdown("各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください")
 
    # ダウンロード機能
     if st.button("スプレッドシートを開く"):
@@ -160,6 +162,8 @@ def main():
         st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
      except Exception as e:
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
+
+    st.markdown("続いて「スプレッドシートを開く」を押して内容を確認してくだい")
 
 # Excelダウンロード機能
     if st.button("EXCELを保存"):
@@ -182,9 +186,11 @@ def main():
             file_name="spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.info("レーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
+        st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
      except Exception as e:
         st.error(f"Excel保存中にエラーが発生しました: {e}")
+
+    st.markdown("Excelでデータを保存したい方は「EXCELを保存」を押してくだい")
              # **区切り線**
                 # **別のWebアプリへのリンク**
     st.markdown("---")  # 区切り線   
@@ -192,10 +198,13 @@ def main():
     st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
     st.markdown("[特別支援教育で使える療法・分析法一覧](hhttps://bunnsekiapppy-6zctfql94fk2x3ghmu5pmx.streamlit.app/)")
     st.markdown("---")  # 区切り線  
-    st.markdown("📁統計学分析ツール") 
-    st.markdown("[多変量回帰分析](https://kaikiapp-tjtcczfvlg2pyhd9bjxwom.streamlit.app/)")
+    st.markdown("📁教育・心理分析ツール") 
     st.markdown("[応用行動分析](https://abaapppy-k7um2qki5kggexf8qkfxjc.streamlit.app/)")
-    st.markdown("[機能的行動評価分析](https://kinoukoudou-ptfpnkq3uqgaorabcyzgf2.streamlit.app/)")
+    st.markdown("[機能的行動評価分析](https://kinoukoudou-ptfpnkq3uqgaorabcyzgf2.streamlit.app/)") 
+    st.markdown("---")  # 区切り線
+    st.markdown("📁統計学分析ツール") 
+    st.markdown("[相関分析ツール](https://soukan-jlhkdhkradbnxssy29aqte.streamlit.app/)")
+    st.markdown("[多変量回帰分析](https://kaikiapp-tjtcczfvlg2pyhd9bjxwom.streamlit.app/)")
     st.markdown("[ロジスティック回帰分析ツール](https://rojisthik-buklkg5zeh6oj2gno746ix.streamlit.app/)")
     st.markdown("[ノンパラメトリック統計分析ツール](https://nonparametoric-nkk2awu6yv9xutzrjmrsxv.streamlit.app/)")
 
