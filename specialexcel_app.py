@@ -55,8 +55,8 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
-    st.markdown("""1.各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください。
-                2.続いて「スプレッドシートを開く」を押して内容を確認してくだい。
+    st.markdown("""1.各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください。  
+                2.続いて「スプレッドシートを開く」を押して内容を確認してくだい。  
                 3.Excelでデータを保存したい方は「EXCELを保存」を押してくだい。""")
 
     if st.button("スプレッドシートに書き込む"):
