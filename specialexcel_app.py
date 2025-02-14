@@ -55,6 +55,10 @@ def main():
         st.subheader(category)
         selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
 
+    st.markdown("""1.各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください
+                   2.続いて「スプレッドシートを開く」を押して内容を確認してくだい
+                   3.Excelでデータを保存したい方は「EXCELを保存」を押してくだい""")
+
     if st.button("スプレッドシートに書き込む"):
         try:
             # 各カテゴリと選択肢をスプレッドシートに書き込む
@@ -150,7 +154,7 @@ def main():
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
     
-    st.markdown("各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください")
+    
 
    # ダウンロード機能
     if st.button("スプレッドシートを開く"):
@@ -163,8 +167,7 @@ def main():
      except Exception as e:
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
-    st.markdown("続いて「スプレッドシートを開く」を押して内容を確認してくだい")
-
+    
 # Excelダウンロード機能
     if st.button("EXCELを保存"):
      try:
@@ -190,7 +193,7 @@ def main():
      except Exception as e:
         st.error(f"Excel保存中にエラーが発生しました: {e}")
 
-    st.markdown("Excelでデータを保存したい方は「EXCELを保存」を押してくだい")
+
              # **区切り線**
                 # **別のWebアプリへのリンク**
     st.markdown("---")  # 区切り線   
