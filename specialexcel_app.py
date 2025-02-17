@@ -156,11 +156,14 @@ def main():
     
     
 
-   # ダウンロード機能
+  # ダウンロード機能
     if st.button("スプレッドシートを開く"):
      try:
+        # 指定したシートのID（例: "0" は通常、最初のシート）
+        sheet_gid = "0"  # 必要に応じて変更
+        
         # スプレッドシートのURLを生成してブラウザで開けるようにする
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
         st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
 
         st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
