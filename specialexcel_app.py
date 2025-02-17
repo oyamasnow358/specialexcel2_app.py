@@ -48,14 +48,14 @@ def main():
 
 
 # ダウンロード機能
-if st.button("スプレッドシートを開く"):
-    try:
+    if st.button("スプレッドシートを開く"):
+     try:
         sheet_gid = sheets[selected_sheet]  # 選択したシート2643912...のgidを取得
         spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={643912489}"
         st.markdown(f"[{selected_sheet} を開く]({spreadsheet_url})", unsafe_allow_html=True)
 
         st.info(f"{selected_sheet} を開いた後に、Excelとして保存できます。")
-    except Exception as e:
+     except Exception as e:
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
 
