@@ -47,17 +47,17 @@ def main():
 
 
 
-# ダウンロード機能
-    if st.button("スプレッドシートを開く"):
+    if st.button("現在の発達段階を表から確認する"):
      try:
-        sheet_gid = sheets[selected_sheet]  # 選択したシート2643912...のgidを取得
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={643912489}"
-        st.markdown(f"[{selected_sheet} を開く]({spreadsheet_url})", unsafe_allow_html=True)
-
-        st.info(f"{selected_sheet} を開いた後に、Excelとして保存できます。")
+        # 指定したシートのID（例: "0" は通常、最初のシート）
+        sheet_gid = "643912489"  # 必要に応じて変更
+        
+        # スプレッドシートのURLを生成してブラウザで開けるようにする
+        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
+        st.markdown(f"[発達段階表]({spreadsheet_url})", unsafe_allow_html=True)
+        
      except Exception as e:
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
-
 
 
     sheet_name = "シート1"
