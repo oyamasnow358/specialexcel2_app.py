@@ -30,6 +30,7 @@ client = storage.Client(credentials=credentials)
 
 # **スプレッドシートのIDをグローバル変数として定義**
 spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+excel_file_id = "16O5LLCft2o2q4Xz8H5WDx6zzVA_23DBQ"  # Googleドライブ上のExcelファイルのIDを入力
 
 def write_to_sheets(sheet_name, cell, value):
     service.spreadsheets().values().update(
@@ -186,31 +187,30 @@ def main():
      except Exception as e:
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
+        # スプレッドシートのデータを取得
+     sheet_data = service.spreadsheets().values().get(
+     spreadsheetId=spreadsheet_id,
+     range="シート1"
+     ).execute().get('values', [])
+      # スプレッドシートのデータをExcelファイルに書き込む
+     
+     service.spreadsheets().values().update(
+     spreadsheetId=excel_file_id,
+        range="シート1",
+        valueInputOption="RAW",
+        body={"values": sheet_data}
+     ).execute()
+        
+     st.success("スプレッドシートの内容をExcelにコピーしました。")
+     
     
 # Excelダウンロード機能
     if st.button("EXCELを保存"):
-     try:
-        # Google Drive API を使用してスプレッドシートをエクスポート
-        request = drive_service.files().export_media(
-            fileId=spreadsheet_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        file_data = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_data, request)
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
+     copy_sheets_to_excel()
 
-        file_data.seek(0)
-        st.download_button(
-            label="PCに結果を保存",
-            data=file_data,
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
-     except Exception as e:
-        st.error(f"Excel保存中にエラーが発生しました: {e}")
+    # ユーザーにダウンロード用リンクを提供
+    excel_download_url = f"https://drive.google.com/uc?export=download&id={drive_excel_file_id}"
+    st.markdown(f"[ここをクリックしてExcelをダウンロード]({excel_download_url})", unsafe_allow_html=True)
 
 
              # **区切り線**
