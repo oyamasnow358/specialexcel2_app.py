@@ -46,6 +46,10 @@ def copy_spreadsheet():
             fileId=spreadsheet_id,
             body={"name": "コピーされたスプレッドシート"}
         ).execute()
+        
+        # コピーされたファイルの情報を表示
+        st.write("コピーされたスプレッドシートの情報:", copied_file)
+
         st.session_state.copied_spreadsheet_id = copied_file["id"]
         st.success("スプレッドシートのコピーを作成しました！")
     except Exception as e:
