@@ -209,7 +209,7 @@ def main():
      copy_sheets_to_excel()
 
     # ユーザーにダウンロード用リンクを提供
-    excel_download_url = f"https://drive.google.com/uc?export=download&id={drive_excel_file_id}"
+    excel_download_url = f"https://drive.google.com/uc?export=download&id={excel_file_id}"
     st.markdown(f"[ここをクリックしてExcelをダウンロード]({excel_download_url})", unsafe_allow_html=True)
 
 
