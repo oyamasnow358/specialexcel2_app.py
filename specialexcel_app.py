@@ -29,7 +29,7 @@ drive_service = build('drive', 'v3', credentials=credentials)
 client = storage.Client(credentials=credentials)
 
 # **スプレッドシートのIDをグローバル変数として定義**
-spreadsheet_id = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"#"10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"#"10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
 excel_file_id = "16O5LLCft2o2q4Xz8H5WDx6zzVA_23DBQ"  # Googleドライブ上のExcelファイルのIDを入力
 
 # セッションステートを使用してコピーIDと最終アクセス時間を管理
