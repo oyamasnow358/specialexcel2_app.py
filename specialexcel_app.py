@@ -70,13 +70,14 @@ def check_and_delete_old_copy():
         delete_copied_spreadsheet()
 
 
-def write_to_sheets(sheet_name, cell, value):
+def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
     service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
+        spreadsheetId=spreadsheet_id,  # ← コピー後のスプレッドシートIDを使用
         range=f"{sheet_name}!{cell}",
         valueInputOption="RAW",
         body={"values": [[value]]}
     ).execute()
+
 
 def main():
     st.title("📉発達段階能力チャート作成📈")
