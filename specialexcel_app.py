@@ -29,8 +29,46 @@ drive_service = build('drive', 'v3', credentials=credentials)
 client = storage.Client(credentials=credentials)
 
 # **スプレッドシートのIDをグローバル変数として定義**
-spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+spreadsheet_id = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"#"10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
 excel_file_id = "16O5LLCft2o2q4Xz8H5WDx6zzVA_23DBQ"  # Googleドライブ上のExcelファイルのIDを入力
+
+# セッションステートを使用してコピーIDと最終アクセス時間を管理
+if "copied_spreadsheet_id" not in st.session_state:
+    st.session_state.copied_spreadsheet_id = None
+if "last_access_time" not in st.session_state:
+    st.session_state.last_access_time = time.time()
+
+
+# スプレッドシートのコピーを作成
+def copy_spreadsheet():
+    try:
+        copied_file = drive_service.files().copy(
+            fileId=spreadsheet_id,
+            body={"name": "コピーされたスプレッドシート"}
+        ).execute()
+        st.session_state.copied_spreadsheet_id = copied_file["id"]
+        st.success("スプレッドシートのコピーを作成しました！")
+    except Exception as e:
+        st.error(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
+
+
+# スプレッドシートのコピーを削除
+def delete_copied_spreadsheet():
+    try:
+        if st.session_state.copied_spreadsheet_id:
+            drive_service.files().delete(fileId=st.session_state.copied_spreadsheet_id).execute()
+            st.session_state.copied_spreadsheet_id = None
+            st.success("スプレッドシートのコピーを削除しました。")
+    except Exception as e:
+        st.error(f"スプレッドシートの削除中にエラーが発生しました: {e}")
+
+
+# 自動削除の管理（一定時間操作がなかったら削除）
+def check_and_delete_old_copy():
+    current_time = time.time()
+    if st.session_state.copied_spreadsheet_id and (current_time - st.session_state.last_access_time > 1800):  # 30分
+        delete_copied_spreadsheet()
+
 
 def write_to_sheets(sheet_name, cell, value):
     service.spreadsheets().values().update(
@@ -43,10 +81,6 @@ def write_to_sheets(sheet_name, cell, value):
 def main():
     st.title("📉発達段階能力チャート作成📈")
     st.info("児童・生徒の発達段階が分からない場合は下の「現在の発達段階を表から確認する」⇒「発達段階表」を順に押して下さい。")
-
-
-
-
 
     if st.button("現在の発達段階を表から確認する"):
      try:
@@ -77,11 +111,17 @@ def main():
                 3.Excelでデータを保存したい方は「EXCELを保存」を押してくだい。""")
 
     if st.button("スプレッドシートに書き込む"):
+        st.session_state.last_access_time = time.time()  # 最終アクセス時間を更新
+        if st.session_state.copied_spreadsheet_id is None:
+           copy_spreadsheet()  # 初回実行時にコピーを作成
+
         try:
             # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                write_to_sheets(sheet_name, f"A{index + 2}", category)
-                write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
+                 write_to_sheets(st.session_state.copied_spreadsheet_id, "シート1", f"A{index + 2}", category)
+                 write_to_sheets(st.session_state.copied_spreadsheet_id, "シート1", f"B{index + 2}", selected_option)
+                #write_to_sheets(sheet_name, f"A{index + 2}", category)
+                #write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
 
             # 年齢カテゴリのマッピング
             age_categories = {
@@ -172,45 +212,84 @@ def main():
             st.error(f"エラーが発生しました: {e}")
     
     
+# スプレッドシートを開く
+    if st.button("スプレッドシートを開く"):
+       st.session_state.last_access_time = time.time()  # 最終アクセス時間を更新
+
+       if st.session_state.copied_spreadsheet_id:
+        sheet_gid = "0"  # 必要に応じて変更
+        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{st.session_state.copied_spreadsheet_id}/edit#gid={sheet_gid}"
+        st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
+       else:
+        st.warning("まだスプレッドシートのコピーが作成されていません。")
 
   # ダウンロード機能
-    if st.button("スプレッドシートを開く"):
-     try:
+   # if st.button("スプレッドシートを開く"):
+    # try:
         # 指定したシートのID（例: "0" は通常、最初のシート）
-        sheet_gid = "0"  # 必要に応じて変更
+     #   sheet_gid = "0"  # 必要に応じて変更
         
         # スプレッドシートのURLを生成してブラウザで開けるようにする
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
-        st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
+      #  spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
+       # st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
 
-        st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
-     except Exception as e:
-        st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
+        #st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
+     #except Exception as e:
+      #  st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
 
-        # スプレッドシートのデータを取得
-     sheet_data = service.spreadsheets().values().get(
-     spreadsheetId=spreadsheet_id,
-     range="シート1"
-     ).execute().get('values', [])
-      # スプレッドシートのデータをExcelファイルに書き込む
-     
-     service.spreadsheets().values().update(
-     spreadsheetId=excel_file_id,
-        range="シート1",
-        valueInputOption="RAW",
-        body={"values": sheet_data}
-     ).execute()
-        
-     st.success("スプレッドシートの内容をExcelにコピーしました。")
-     
-    
-# Excelダウンロード機能
+
+# EXCELを保存
     if st.button("EXCELを保存"):
-     copy_sheets_to_excel()
+       st.session_state.last_access_time = time.time()  # 最終アクセス時間を更新
 
-    # ユーザーにダウンロード用リンクを提供
-    excel_download_url = f"https://drive.google.com/uc?export=download&id={excel_file_id}"
-    st.markdown(f"[ここをクリックしてExcelをダウンロード]({excel_download_url})", unsafe_allow_html=True)
+       if st.session_state.copied_spreadsheet_id:
+        try:
+            request = drive_service.files().export_media(
+                fileId=st.session_state.copied_spreadsheet_id,
+                mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            file_data = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_data, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+
+            file_data.seek(0)
+            st.download_button(
+                label="PCに結果を保存",
+                data=file_data,
+                file_name="spreadsheet.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"Excelの保存中にエラーが発生しました: {e}")
+       else:
+        st.warning("まだスプレッドシートのコピーが作成されていません。")
+
+    st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
+   
+# Excelダウンロード機能
+    #if st.button("EXCELを保存"):
+     #try:
+        # Google Drive API を使用してスプレッドシートをエクスポート
+      #  request = drive_service.files().export_media(
+       #     fileId=spreadsheet_id,
+        #    mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        #)
+        #file_data = io.BytesIO()
+        #downloader = MediaIoBaseDownload(file_data, request)
+        #done = False
+        #while not done:
+         #   status, done = downloader.next_chunk()
+
+#        file_data.seek(0)
+ #       st.download_button(
+  #          label="PCに結果を保存",
+   #         data=file_data,
+    #        file_name="spreadsheet.xlsx",
+     #       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      #  )
+        
 
 
              # **区切り線**
