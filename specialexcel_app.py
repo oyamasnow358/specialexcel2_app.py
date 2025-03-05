@@ -57,17 +57,19 @@ def copy_spreadsheet():
         copied_file_id = copied_file["id"]
 
         # 3. コピーしたファイルのオーナーを自分に変更
-        drive_service.permissions().create(
-            fileId=copied_file_id,
-            body={
-                "type": "user",
-                "role": "owner",  # オーナー権限を付与
-                "transferOwnership": True,
-                "emailAddress": "sm.app.kaihatu23156go@gmail.com"
-            }
-        ).execute()
-
-        st.success("ファイルのオーナーを自分に変更しました！")
+        try:
+            drive_service.permissions().create(
+                fileId=copied_file_id,
+                body={
+                    "type": "user",
+                    "role": "owner",  # オーナー権限を付与
+                    "transferOwnership": True,
+                    "emailAddress": "あなたのGoogleアカウントのメールアドレス"
+                }
+            ).execute()
+            st.success("ファイルのオーナーを自分に変更しました！")
+        except Exception as e:
+            st.warning(f"オーナー変更に失敗しました: {e}")
 
         # 4. コピーしたファイルをオリジナルと同じフォルダに移動
         drive_service.files().update(
