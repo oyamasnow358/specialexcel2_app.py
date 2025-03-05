@@ -42,29 +42,49 @@ def get_folder_id(file_id):
     """ 指定したファイルが所属するフォルダIDを取得する """
     file_info = drive_service.files().get(fileId=file_id, fields="parents").execute()
     return file_info.get("parents", [None])[0]  # 最初のフォルダIDを取得
-
-
-# aaaaaスプレッドシートのコピーを作成
+# スプレッドシートのコピーを作成
 def copy_spreadsheet():
     try:
-        # コピー処理
+        # 1. オリジナルのスプレッドシートがあるフォルダIDを取得
+        original_folder_id = get_folder_id(spreadsheet_id)
+
+        # 2. スプレッドシートのコピーを作成
         copied_file = drive_service.files().copy(
             fileId=spreadsheet_id,
             body={"name": "コピーされたスプレッドシート"}
         ).execute()
 
-        copied_file_id = copied_file.get("id")
-        if not copied_file_id:
-            st.error("スプレッドシートのコピーが作成されませんでした。")
-            return
+        copied_file_id = copied_file["id"]
 
-        st.success(f"スプレッドシートのコピー作成成功！ID: {copied_file_id}")
+        # 3. コピーしたファイルのオーナーを自分に変更
+        drive_service.permissions().create(
+            fileId=copied_file_id,
+            body={
+                "type": "user",
+                "role": "writer",  # オーナー権限を付与
+                "transferOwnership": True,
+                "emailAddress": "あなたのGoogleアカウントのメールアドレス"
+            }
+        ).execute()
 
-        # セッションに保存
+        st.success("ファイルのオーナーを自分に変更しました！")
+
+        # 4. コピーしたファイルをオリジナルと同じフォルダに移動
+        drive_service.files().update(
+            fileId=copied_file_id,
+            addParents=original_folder_id,
+            removeParents=copied_file.get("parents", ""),  # もともとのフォルダから削除
+            fields="id, parents"
+        ).execute()
+
+        # コピーしたスプレッドシートのIDをセッションに保存
         st.session_state.copied_spreadsheet_id = copied_file_id
 
+        st.success("スプレッドシートのコピーを作成し、オリジナルと同じフォルダに移動しました！")
+
     except Exception as e:
-        st.error(f"スプレッドシートのコピー作成エラー: {e}")
+        st.error(f"スプレッドシートのコピー作成または移動中にエラーが発生しました: {e}")
+
 
 
 # 自動削除の管理（一定時間操作がなかったら削除）
