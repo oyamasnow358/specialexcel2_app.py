@@ -42,7 +42,9 @@ def get_folder_id(file_id):
     """ 指定したファイルが所属するフォルダIDを取得する """
     file_info = drive_service.files().get(fileId=file_id, fields="parents").execute()
     return file_info.get("parents", [None])[0]  # 最初のフォルダIDを取得
-# スプレッドシートのコピーを作成
+
+
+# aaaaaスプレッドシートのコピーを作成
 def copy_spreadsheet():
     try:
         # コピー処理
