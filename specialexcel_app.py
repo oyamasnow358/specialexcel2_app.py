@@ -31,6 +31,8 @@ client = storage.Client(credentials=credentials)
 # **スプレッドシートのIDをグローバル変数として定義**
 spreadsheet_id = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"#"10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
 excel_file_id = "16O5LLCft2o2q4Xz8H5WDx6zzVA_23DBQ"  # Googleドライブ上のExcelファイルのIDを入力
+# **コピー先のフォルダIDを指定**
+FOLDER_ID = "1RjW33xskP4Qfunc6HAkWxfTKNZWh5oMP"  # ← ここにフォルダIDを入れる
 
 # セッションステートを使用してコピーIDと最終アクセス時間を管理
 if "copied_spreadsheet_id" not in st.session_state:
@@ -42,48 +44,27 @@ def get_folder_id(file_id):
     """ 指定したファイルが所属するフォルダIDを取得する """
     file_info = drive_service.files().get(fileId=file_id, fields="parents").execute()
     return file_info.get("parents", [None])[0]  # 最初のフォルダIDを取得
+
 # スプレッドシートのコピーを作成
 def copy_spreadsheet():
     try:
-        # 1. オリジナルのスプレッドシートがあるフォルダIDを取得
-        original_folder_id = get_folder_id(spreadsheet_id)
-
-        # 2. スプレッドシートのコピーを作成
         copied_file = drive_service.files().copy(
             fileId=spreadsheet_id,
-            body={"name": "コピーされたスプレッドシート"}
+            body={
+                "name": "コピーされたスプレッドシート",
+                "parents": [FOLDER_ID]  # ✅ ここでフォルダを指定！
+            }
         ).execute()
 
         copied_file_id = copied_file["id"]
 
-        # 3. コピーしたファイルのオーナーを自分に変更
-        drive_service.permissions().create(
-            fileId=copied_file_id,
-            body={
-                "type": "user",
-                "role": "writer",  # オーナー権限を付与
-                "transferOwnership": True,
-                "emailAddress": "あなたのGoogleアカウントのメールアドレス"
-            }
-        ).execute()
-
-        st.success("ファイルのオーナーを自分に変更しました！")
-
-        # 4. コピーしたファイルをオリジナルと同じフォルダに移動
-        drive_service.files().update(
-            fileId=copied_file_id,
-            addParents=original_folder_id,
-            removeParents=copied_file.get("parents", ""),  # もともとのフォルダから削除
-            fields="id, parents"
-        ).execute()
-
-        # コピーしたスプレッドシートのIDをセッションに保存
+        # **コピーしたスプレッドシートのIDをセッションに保存**
         st.session_state.copied_spreadsheet_id = copied_file_id
 
-        st.success("スプレッドシートのコピーを作成し、オリジナルと同じフォルダに移動しました！")
+        st.success("スプレッドシートのコピーを作成し、指定のフォルダに保存しました！")
 
     except Exception as e:
-        st.error(f"スプレッドシートのコピー作成または移動中にエラーが発生しました: {e}")
+        st.error(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
 
 
 
