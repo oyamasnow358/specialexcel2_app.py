@@ -45,7 +45,10 @@ def get_folder_id(file_id):
 # スプレッドシートのコピーを作成
 def copy_spreadsheet():
     try:
-        # 1. スプレッドシートのコピーを作成
+        # 1. オリジナルのスプレッドシートがあるフォルダIDを取得
+        original_folder_id = get_folder_id(spreadsheet_id)
+
+        # 2. スプレッドシートのコピーを作成
         copied_file = drive_service.files().copy(
             fileId=spreadsheet_id,
             body={"name": "コピーされたスプレッドシート"}
@@ -53,30 +56,35 @@ def copy_spreadsheet():
 
         copied_file_id = copied_file["id"]
 
-        # 2. コピーをマイドライブのルートフォルダに移動
+        # 3. コピーしたファイルのオーナーを自分に変更
+        drive_service.permissions().create(
+            fileId=copied_file_id,
+            body={
+                "type": "user",
+                "role": "owner",  # オーナー権限を付与
+                "transferOwnership": True,
+                "emailAddress": "sm.app.kaihatu23156go@gmail.com"
+            }
+        ).execute()
+
+        st.success("ファイルのオーナーを自分に変更しました！")
+
+        # 4. コピーしたファイルをオリジナルと同じフォルダに移動
         drive_service.files().update(
             fileId=copied_file_id,
-            addParents="root",  # マイドライブのルートフォルダ
-            removeParents=copied_file.get("parents", ""),  # もともとのフォルダから削除
+            addParents=original_folder_id,
+            removeParents="root",
             fields="id, parents"
         ).execute()
 
         # コピーしたスプレッドシートのIDをセッションに保存
         st.session_state.copied_spreadsheet_id = copied_file_id
 
-        st.success("スプレッドシートのコピーを作成し、マイドライブに移動しました！")
+        st.success("スプレッドシートのコピーを作成し、オリジナルと同じフォルダに移動しました！")
 
     except Exception as e:
         st.error(f"スプレッドシートのコピー作成または移動中にエラーが発生しました: {e}")
-# スプレッドシートのコピーを削除
-def delete_copied_spreadsheet():
-    try:
-        if st.session_state.copied_spreadsheet_id:
-            drive_service.files().delete(fileId=st.session_state.copied_spreadsheet_id).execute()
-            st.session_state.copied_spreadsheet_id = None
-            st.success("スプレッドシートのコピーを削除しました。")
-    except Exception as e:
-        st.error(f"スプレッドシートの削除中にエラーが発生しました: {e}")
+
 
 
 # 自動削除の管理（一定時間操作がなかったら削除）
