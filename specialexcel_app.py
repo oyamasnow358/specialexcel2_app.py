@@ -45,48 +45,24 @@ def get_folder_id(file_id):
 # スプレッドシートのコピーを作成
 def copy_spreadsheet():
     try:
-        # 1. オリジナルのスプレッドシートがあるフォルダIDを取得
-        original_folder_id = get_folder_id(spreadsheet_id)
-
-        # 2. スプレッドシートのコピーを作成
+        # コピー処理
         copied_file = drive_service.files().copy(
             fileId=spreadsheet_id,
             body={"name": "コピーされたスプレッドシート"}
         ).execute()
 
-        copied_file_id = copied_file["id"]
+        copied_file_id = copied_file.get("id")
+        if not copied_file_id:
+            st.error("スプレッドシートのコピーが作成されませんでした。")
+            return
 
-        # 3. コピーしたファイルのオーナーを自分に変更
-        try:
-            drive_service.permissions().create(
-                fileId=copied_file_id,
-                body={
-                    "type": "user",
-                    "role": "owner",  # オーナー権限を付与
-                    "transferOwnership": True,
-                    "emailAddress": "あなたのGoogleアカウントのメールアドレス"
-                }
-            ).execute()
-            st.success("ファイルのオーナーを自分に変更しました！")
-        except Exception as e:
-            st.warning(f"オーナー変更に失敗しました: {e}")
+        st.success(f"スプレッドシートのコピー作成成功！ID: {copied_file_id}")
 
-        # 4. コピーしたファイルをオリジナルと同じフォルダに移動
-        drive_service.files().update(
-            fileId=copied_file_id,
-            addParents=original_folder_id,
-            removeParents="root",
-            fields="id, parents"
-        ).execute()
-
-        # コピーしたスプレッドシートのIDをセッションに保存
+        # セッションに保存
         st.session_state.copied_spreadsheet_id = copied_file_id
 
-        st.success("スプレッドシートのコピーを作成し、オリジナルと同じフォルダに移動しました！")
-
     except Exception as e:
-        st.error(f"スプレッドシートのコピー作成または移動中にエラーが発生しました: {e}")
-
+        st.error(f"スプレッドシートのコピー作成エラー: {e}")
 
 
 # 自動削除の管理（一定時間操作がなかったら削除）
