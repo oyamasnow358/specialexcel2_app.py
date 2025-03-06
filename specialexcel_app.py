@@ -355,16 +355,16 @@ def update_google_sheet(service, spreadsheet_id):
                  ]
                 }
 
-        service.spreadsheets().batchUpdate(
-            spreadsheetId=spreadsheet_id,
-            body=chart_request
-        ).execute()
+               service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body=chart_request
+               ).execute()
 
-        st.success("スプレッドシートのデータを更新し、レーダーチャートを作成しました！")
+               st.success("スプレッドシートのデータを更新し、レーダーチャートを作成しました！")
 
     
-    except Exception as e:
-            st.error(f"エラーが発生しました: {e}")
+          except Exception as e:
+               st.error(f"エラーが発生しました: {e}")
     
     
 
