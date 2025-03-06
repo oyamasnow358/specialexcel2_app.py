@@ -132,14 +132,14 @@ def update_google_sheet(service, spreadsheet_id):
             spreadsheetId=spreadsheet_id,
             range="シート1!A3:B13"
         ).execute().get('values', [])
-        
+
         if not sheet1_data:
             raise ValueError("シート1のデータが取得できませんでした。")
-        
+
         category_names, age_range = zip(*sheet1_data) if sheet1_data else ([], [])
         category_names = [name.strip() for name in category_names]
         age_range = [age.strip() for age in age_range]
-        
+
         # **年齢を1〜12の数値に変換**
         age_categories = {
             "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
@@ -157,6 +157,7 @@ def update_google_sheet(service, spreadsheet_id):
 
     except Exception as e:
         st.error(f"エラーが発生しました: {e}")  # Streamlitのエラー表示
+
         
         # **シート2のデータを取得**
         sheet2_data = service.spreadsheets().values().get(
