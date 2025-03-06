@@ -29,25 +29,66 @@ drive_service = build('drive', 'v3', credentials=credentials)
 client = storage.Client(credentials=credentials)
 
 # **スプレッドシートのIDをグローバル変数として定義**
-spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+spreadsheet_id = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"#"10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+excel_file_id = "16O5LLCft2o2q4Xz8H5WDx6zzVA_23DBQ"  # Googleドライブ上のExcelファイルのIDを入力
+# **コピー先のフォルダIDを指定**
+FOLDER_ID = "1RjW33xskP4Qfunc6HAkWxfTKNZWh5oMP"  # ← ここにフォルダIDを入れる
 
-def write_to_sheets(sheet_name, cell, value):
+# セッションステートを使用してコピーIDと最終アクセス時間を管理
+if "copied_spreadsheet_id" not in st.session_state:
+    st.session_state.copied_spreadsheet_id = None
+if "last_access_time" not in st.session_state:
+    st.session_state.last_access_time = time.time()
+#orijinaruno ID
+def get_folder_id(file_id):
+    """ 指定したファイルが所属するフォルダIDを取得する """
+    file_info = drive_service.files().get(fileId=file_id, fields="parents").execute()
+    return file_info.get("parents", [None])[0]  # 最初のフォルダIDを取得
+
+# スプレッドシートのコピーを作成
+def copy_spreadsheet():
+    try:
+        copied_file = drive_service.files().copy(
+            fileId=spreadsheet_id,
+            body={
+                "name": "コピーされたスプレッドシート",
+                "parents": [FOLDER_ID]  # ✅ ここでフォルダを指定！
+            }
+        ).execute()
+
+        copied_file_id = copied_file["id"]
+
+        # **コピーしたスプレッドシートのIDをセッションに保存**
+        st.session_state.copied_spreadsheet_id = copied_file_id
+
+        st.success("スプレッドシートのコピーを作成し、指定のフォルダに保存しました！")
+
+    except Exception as e:
+        st.error(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
+
+
+
+# 自動削除の管理（一定時間操作がなかったら削除）
+def check_and_delete_old_copy():
+    current_time = time.time()
+    if st.session_state.copied_spreadsheet_id and (current_time - st.session_state.last_access_time > 1800):  # 30分
+        delete_copied_spreadsheet()
+
+
+def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
     service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
+        spreadsheetId=spreadsheet_id,  # ← コピー後のスプレッドシートIDを使用
         range=f"{sheet_name}!{cell}",
         valueInputOption="RAW",
         body={"values": [[value]]}
     ).execute()
 
+
 def main():
     st.title("📉発達段階能力チャート作成📈")
     st.info("児童・生徒の発達段階が分からない場合は下の「現在の発達段階を表から確認する」⇒「発達段階表」を順に押して下さい。")
 
-
-
-
-
-if st.button("現在の発達段階を表から確認する"):
+    if st.button("現在の発達段階を表から確認する"):
      try:
         # 指定したシートのID（例: "0" は通常、最初のシート）
         sheet_gid = "643912489"  # 必要に応じて変更
@@ -58,8 +99,6 @@ if st.button("現在の発達段階を表から確認する"):
         
      except Exception as e:
         st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
-
-
 sheet_name = "シート1"
 
 categories = ["認知力・操作", "言語理解", "表出言語", "視覚記憶", "聴覚記憶", "読字", "書字", "粗大運動", "微細運動","数の概念","生活動作"]
