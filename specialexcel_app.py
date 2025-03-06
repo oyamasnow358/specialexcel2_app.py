@@ -154,6 +154,9 @@ def update_google_sheet(service, spreadsheet_id):
             valueInputOption="RAW",
             body={"values": converted_values}
         ).execute()
+
+    except Exception as e:
+        st.error(f"エラーが発生しました: {e}")  # Streamlitのエラー表示
         
         # **シート2のデータを取得**
         sheet2_data = service.spreadsheets().values().get(
