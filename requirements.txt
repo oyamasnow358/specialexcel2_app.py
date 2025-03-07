@@ -4,3 +4,8 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 google-cloud-storage
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-auth-json
