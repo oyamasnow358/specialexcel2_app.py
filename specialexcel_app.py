@@ -93,7 +93,7 @@ def main():
     # ★ 修正：変数 selected_options を関数スコープ内に定義
     selected_options = {category: st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
                         for index, category in enumerate(categories, start=1)}
-    st.info("「スプレッドシートに書き込む」を押してから「スプレッドシートを開く」⇒保存したい人は「Excelに保存を」押してください。")
+    st.info("「スプレッドシートに書き込む」を押してから「スプレッドシートを開く」⇒保存したい人は「Excelに保存を」⇒「保存」を押してください。")
     if st.button("スプレッドシートに書き込む"):
      st.session_state.last_access_time = time.time()
     
@@ -308,7 +308,7 @@ def main():
             
             file_data.seek(0)
             st.download_button(
-                label="PCに結果を保存",
+                label="保存（EXCELを保存を押した後）",
                 data=file_data.read(),
                 file_name="spreadsheet.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
