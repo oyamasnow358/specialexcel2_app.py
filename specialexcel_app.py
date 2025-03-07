@@ -348,12 +348,12 @@ def main():
                
 # 一番下に表示させるメッセージ
 
-st.markdown("---")  # 区切り線   
-st.markdown("🌎関連Webアプリに移動する")
-st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
-st.markdown("[特別支援教育で使える療法・分析法一覧](https://bunnsekiapppy-6zctfql94fk2x3ghmu5pmx.streamlit.app/)")
-st.markdown("---")  # 区切り線  
-st.markdown("📁教育・心理分析ツール") 
+    st.markdown("---")  # 区切り線   
+    st.markdown("🌎関連Webアプリに移動する")
+    st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
+    st.markdown("[特別支援教育で使える療法・分析法一覧](https://bunnsekiapppy-6zctfql94fk2x3ghmu5pmx.streamlit.app/)")
+    st.markdown("---")  # 区切り線  
+    st.markdown("📁教育・心理分析ツール") 
 st.markdown("[応用行動分析](https://abaapppy-k7um2qki5kggexf8qkfxjc.streamlit.app/)")
 st.markdown("[機能的行動評価分析](https://kinoukoudou-ptfpnkq3uqgaorabcyzgf2.streamlit.app/)") 
 st.markdown("---")  # 区切り線
@@ -367,10 +367,4 @@ st.markdown("---")  # 区切り線
 st.write("""※ それぞれのアプリに記載してある内容、分析ツールのデータや図、表を外部に出す物（研究など）に使用する場合は小山までご相談ください。無断での転記・利用を禁じます。""")
 
 
-st.markdown(
-    """
-    ※ それぞれのアプリに記載してある内容、分析ツールのデータや図、表を外部に出す物（研究など）に使用する場合は小山までご相談ください。  
-    無断での転記・利用を禁じます。
-    """,
-    unsafe_allow_html=True
-)
+
