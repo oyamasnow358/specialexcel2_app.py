@@ -226,9 +226,19 @@ def main():
 
             except Exception as e:
                st.error(f"グラフ削除中にエラーが発生しました: {e}")
-
+            updated_c_values = [
+                [min(12, int(row[2]) + 1) if row[2] and str(row[2]).isdigit() else ""]
+                 for row in sheet1_copy_data
+            ]
             def add_scatter_chart(spreadsheet_id):
              chart_request = {
+
+              
+                 #           "chartType": "SCATTER",  # 散布図
+                  #          "legendPosition": "BOTTOM_LEGEND",
+                   #         "axis": [
+                    #            {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
+                     #           {"position": "LEFT_AXIS", "title": "数値"}
     "requests": [
         {
             "addChart": {
@@ -239,31 +249,40 @@ def main():
                             "chartType": "SCATTER",  # 散布図
                             "legendPosition": "BOTTOM_LEGEND",
                             "axis": [
-                                {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
-                                {"position": "LEFT_AXIS", "title": "数値"}
-                            ],
-                            "domains": [{
-                                "domain": {
-                                    "sourceRange": {
-                                        "sources": [{
-                                            "sheetId": 0,
-                                            "startRowIndex": 2, "endRowIndex": 13,
-                                            "startColumnIndex": 0, "endColumnIndex": 1
-                                        }]
-                                    }
-                                }
-                            }],
-                            "series": [{
-                                "series": {
-                                    "sourceRange": {
-                                        "sources": [{
-                                            "sheetId": 0,
-                                            "startRowIndex": 2, "endRowIndex": 13,
-                                            "startColumnIndex": 2, "endColumnIndex": 3
-                                        }]
-                                    }
-                                },
-                                "targetAxis": "LEFT_AXIS"
+            {
+                "position": "BOTTOM_AXIS", "title": "カテゴリ",
+                "position": "LEFT_AXIS", "title": "数値"
+            },
+            {
+                "position": "LEFT_AXIS",
+                "title": "Y Axis",
+                "viewWindowOptions": {
+                    "viewWindowMin": 1,  # 下限を1
+                    "viewWindowMax": 12  # 上限を12
+                }
+            }
+        ],
+        "domains": [
+            {
+                "domain": {
+                    "sourceRange": {
+                        "sources": [
+                            {"sheetId": sheet_id, "startRowIndex": 0, "startColumnIndex": 0, "endColumnIndex": 1}
+                        ]
+                    }
+                }
+            }
+        ],
+        "series": [
+            {
+                "series": {
+                    "sourceRange": {
+                        "sources": [
+                            {"sheetId": sheet_id, "startRowIndex": 0, "startColumnIndex": 1, "endColumnIndex": 2}
+                        ]
+                    }
+                },
+                "targetAxis": "LEFT_AXIS"
                             }]
                         }
                     },
