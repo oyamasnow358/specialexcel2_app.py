@@ -200,18 +200,15 @@ def main():
                 body={"values": new_results}
             ).execute()
 
+            def delete_previous_scatter_chart(spreadsheet_id):
+              """ 既存の散布図グラフを削除する """
             
-
-        
+            updated_c_values = [
+                [min(12, int(row[2]) + 1) if row[2] and str(row[2]).isdigit() else ""]
+                 for row in sheet1_copy_data
+            ]
             def add_scatter_chart(spreadsheet_id):
              chart_request = {
-
-              
-                 #           "chartType": "SCATTER",  # 散布図
-                  #          "legendPosition": "BOTTOM_LEGEND",
-                   #         "axis": [
-                    #            {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
-                     #           {"position": "LEFT_AXIS", "title": "数値"}
     "requests": [
         {
             "addChart": {
@@ -222,40 +219,32 @@ def main():
                             "chartType": "SCATTER",  # 散布図
                             "legendPosition": "BOTTOM_LEGEND",
                             "axis": [
-            {
-                "position": "BOTTOM_AXIS",
-                "title": "X Axis"
-            },
-            {
-                "position": "LEFT_AXIS",
-                "title": "Y Axis",
-                "viewWindowOptions": {
-                    "viewWindowMin": 1,  # 下限を1
-                    "viewWindowMax": 12  # 上限を12
-                }
-            }
-        ],
-        "domains": [
-            {
-                "domain": {
-                    "sourceRange": {
-                        "sources": [
-                            {"sheetId": sheet_id, "startRowIndex": 0, "startColumnIndex": 0, "endColumnIndex": 1}
-                        ]
-                    }
-                }
-            }
-        ],
-        "series": [
-            {
-                "series": {
-                    "sourceRange": {
-                        "sources": [
-                            {"sheetId": sheet_id, "startRowIndex": 0, "startColumnIndex": 1, "endColumnIndex": 2}
-                        ]
-                    }
-                },
-                "targetAxis": "LEFT_AXIS"
+                                {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
+                                {"position": "LEFT_AXIS", "title": "数値"}
+                            ],
+                            
+                            "domains": [{
+                                "domain": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": 0,
+                                            "startRowIndex": 2, "endRowIndex": 13,
+                                            "startColumnIndex": 0, "endColumnIndex": 1
+                                        }]
+                                    }
+                                }
+                            }],
+                            "series": [{
+                                "series": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": 0,
+                                            "startRowIndex": 2, "endRowIndex": 13,
+                                            "startColumnIndex": 2, "endColumnIndex": 3
+                                        }]
+                                    }
+                                },
+                                "targetAxis": "LEFT_AXIS"
                             }]
                         }
                     },
@@ -356,23 +345,23 @@ def main():
 
              # **区切り線**
                 # **別のWebアプリへのリンク**
-st.markdown("---")  # 区切り線   
-st.markdown("🌎関連Webアプリに移動する")
-st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
-st.markdown("[特別支援教育で使える療法・分析法一覧](https://bunnsekiapppy-6zctfql94fk2x3ghmu5pmx.streamlit.app/)")
-st.markdown("---")  # 区切り線  
-st.markdown("📁教育・心理分析ツール") 
-st.markdown("[応用行動分析](https://abaapppy-k7um2qki5kggexf8qkfxjc.streamlit.app/)")
-st.markdown("[機能的行動評価分析](https://kinoukoudou-ptfpnkq3uqgaorabcyzgf2.streamlit.app/)") 
-st.markdown("---")  # 区切り線
-st.markdown("📁統計学分析ツール") 
-st.markdown("[相関分析ツール](https://soukan-jlhkdhkradbnxssy29aqte.streamlit.app/)")
-st.markdown("[多変量回帰分析](https://kaikiapp-tjtcczfvlg2pyhd9bjxwom.streamlit.app/)")
-st.markdown("[t検定](https://tkentei-flhmnqnq6dti6oyy9xnktr.streamlit.app/)")
-st.markdown("[ロジスティック回帰分析ツール](https://rojisthik-buklkg5zeh6oj2gno746ix.streamlit.app/)")
-st.markdown("[ノンパラメトリック統計分析ツール](https://nonparametoric-nkk2awu6yv9xutzrjmrsxv.streamlit.app/)")
-st.markdown("---")  # 区切り線
-st.write("""※ それぞれのアプリに記載してある内容、分析ツールのデータや図、表を外部に出す物（研究など）に使用する場合は小山までご相談ください。無断での転記・利用を禁じます。""")
+    st.markdown("---")  # 区切り線   
+    st.markdown("🌎関連Webアプリに移動する")
+    st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
+    st.markdown("[特別支援教育で使える療法・分析法一覧](https://bunnsekiapppy-6zctfql94fk2x3ghmu5pmx.streamlit.app/)")
+    st.markdown("---")  # 区切り線  
+    st.markdown("📁教育・心理分析ツール") 
+    st.markdown("[応用行動分析](https://abaapppy-k7um2qki5kggexf8qkfxjc.streamlit.app/)")
+    st.markdown("[機能的行動評価分析](https://kinoukoudou-ptfpnkq3uqgaorabcyzgf2.streamlit.app/)") 
+    st.markdown("---")  # 区切り線
+    st.markdown("📁統計学分析ツール") 
+    st.markdown("[相関分析ツール](https://soukan-jlhkdhkradbnxssy29aqte.streamlit.app/)")
+    st.markdown("[多変量回帰分析](https://kaikiapp-tjtcczfvlg2pyhd9bjxwom.streamlit.app/)")
+    st.markdown("[t検定](https://tkentei-flhmnqnq6dti6oyy9xnktr.streamlit.app/)")
+    st.markdown("[ロジスティック回帰分析ツール](https://rojisthik-buklkg5zeh6oj2gno746ix.streamlit.app/)")
+    st.markdown("[ノンパラメトリック統計分析ツール](https://nonparametoric-nkk2awu6yv9xutzrjmrsxv.streamlit.app/)")
+    st.markdown("---")  # 区切り線
+    st.write("""※ それぞれのアプリに記載してある内容、分析ツールのデータや図、表を外部に出す物（研究など）に使用する場合は小山までご相談ください。無断での転記・利用を禁じます。""")
 
 if __name__ == "__main__":
     main()
