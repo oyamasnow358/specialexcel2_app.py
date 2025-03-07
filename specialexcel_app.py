@@ -347,3 +347,5 @@ def main():
                # **別のWebアプリへのリンク**
                
 
+if __name__ == "__main__":
+    main()
