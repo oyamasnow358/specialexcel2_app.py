@@ -86,46 +86,41 @@ def main():
     st.title("📉発達段階能力チャート作成📈")
     st.info("児童・生徒の発達段階が分からない場合は下の「現在の発達段階を表から確認する」⇒「発達段階表」を順に押して下さい。")
 
-    if st.button("現在の発達段階を表から確認する"):
-     try:
-        # 指定したシートのID（例: "0" は通常、最初のシート）
-        sheet_gid = "643912489"  # 必要に応じて変更
-        
-        # スプレッドシートのURLを生成してブラウザで開けるようにする
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
-        st.markdown(f"[発達段階表]({spreadsheet_url})", unsafe_allow_html=True)
-        
-     except Exception as e:
-        st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
-
-
     sheet_name = "シート1"
-
-    categories = ["認知力・操作", "言語理解", "表出言語", "視覚記憶", "聴覚記憶", "読字", "書字", "粗大運動", "微細運動","数の概念","生活動作"]
+    categories = ["認知力・操作", "言語理解", "表出言語", "視覚記憶", "聴覚記憶", "読字", "書字", "粗大運動", "微細運動", "数の概念", "生活動作"]
     options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月", "12～18ヶ月", "18～24ヶ月", "2～3歳", "3～4歳", "4～5歳", "5～6歳", "6～7歳", "7歳以上"]
 
-    selected_options = {}
-
-    for index, category in enumerate(categories, start=1):
-        st.subheader(category)
-        selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
-
-    st.markdown("""1.各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください。  
-                2.続いて「スプレッドシートを開く」を押して内容を確認してくだい。  
-                3.Excelでデータを保存したい方は「EXCELを保存」を押してくだい。""")
+    # ★ 修正：変数 selected_options を関数スコープ内に定義
+    selected_options = {category: st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
+                        for index, category in enumerate(categories, start=1)}
 
     if st.button("スプレッドシートに書き込む"):
-     st.session_state.last_access_time = time.time()
-    if st.session_state.copied_spreadsheet_id is None:
-        copy_spreadsheet()  # 初回実行時にコピー作成
+        st.session_state.last_access_time = time.time()
 
-    copied_id = st.session_state.copied_spreadsheet_id
-    if copied_id:
-        for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-            write_to_sheets(copied_id, "シート1", f"A{index + 2}", category)
-            write_to_sheets(copied_id, "シート1", f"B{index + 2}", selected_option)
-    else:
-        st.error("スプレッドシートのコピーが存在しません。")
+        # コピーがまだない場合、作成する
+        if st.session_state.copied_spreadsheet_id is None:
+            copy_spreadsheet()
+
+        copied_id = st.session_state.copied_spreadsheet_id
+        if copied_id:
+            # ★ 修正：書き込み回数を減らすため batchUpdate を使用
+            update_values = [
+                [category, selected_options[category]] for category in categories
+            ]
+            try:
+                service.spreadsheets().values().batchUpdate(
+                    spreadsheetId=copied_id,
+                    body={
+                        "valueInputOption": "RAW",
+                        "data": [
+                            {"range": f"{sheet_name}!A3:B13", "values": update_values}
+                        ]
+                    }
+                ).execute()
+            except Exception as e:
+                st.error(f"スプレッドシートの更新中にエラーが発生: {e}")
+        else:
+            st.error("スプレッドシートのコピーが存在しません。")
 
 
         # スプレッドシートのデータを取得して反映
