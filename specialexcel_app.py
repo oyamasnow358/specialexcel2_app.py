@@ -52,19 +52,14 @@ def copy_spreadsheet():
             fileId=spreadsheet_id,
             body={
                 "name": "コピーされたスプレッドシート",
-                "parents": [FOLDER_ID]  # ✅ ここでフォルダを指定！
+                "parents": [FOLDER_ID]
             }
         ).execute()
-
         copied_file_id = copied_file["id"]
-
-        # **コピーしたスプレッドシートのIDをセッションに保存**
         st.session_state.copied_spreadsheet_id = copied_file_id
-
-        st.success("スプレッドシートのコピーを作成し、指定のフォルダに保存しました！")
-
+        st.success("スプレッドシートのコピーを作成しました！")
     except Exception as e:
-        st.error(f"スプレッドシートのコピー作成中にエラーが発生しました: {e}")
+        st.error(f"スプレッドシートのコピー作成中にエラーが発生: {e}")
 
 
 
@@ -76,12 +71,15 @@ def check_and_delete_old_copy():
 
 
 def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,  # ← コピー後のスプレッドシートIDを使用
-        range=f"{sheet_name}!{cell}",
-        valueInputOption="RAW",
-        body={"values": [[value]]}
-    ).execute()
+    try:
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{sheet_name}!{cell}",
+            valueInputOption="RAW",
+            body={"values": [[value]]}
+        ).execute()
+    except Exception as e:
+        st.error(f"スプレッドシートの更新中にエラーが発生: {e}")
 
 
 def main():
@@ -117,132 +115,142 @@ def main():
                 3.Excelでデータを保存したい方は「EXCELを保存」を押してくだい。""")
 
     if st.button("スプレッドシートに書き込む"):
-        st.session_state.last_access_time = time.time()  # 最終アクセス時間を更新
-        if st.session_state.copied_spreadsheet_id is None:
-           copy_spreadsheet()  # 初回実行時にコピーを作成
+     st.session_state.last_access_time = time.time()
+    if st.session_state.copied_spreadsheet_id is None:
+        copy_spreadsheet()  # 初回実行時にコピー作成
 
-        try:
-            # 各カテゴリと選択肢をスプレッドシートに書き込む
-            for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                 write_to_sheets(st.session_state.copied_spreadsheet_id, "シート1", f"A{index + 2}", category)
-                 write_to_sheets(st.session_state.copied_spreadsheet_id, "シート1", f"B{index + 2}", selected_option)
-                #write_to_sheets(sheet_name, f"A{index + 2}", category)
-                #write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
+    copied_id = st.session_state.copied_spreadsheet_id
+    if copied_id:
+        for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
+            write_to_sheets(copied_id, "シート1", f"A{index + 2}", category)
+            write_to_sheets(copied_id, "シート1", f"B{index + 2}", selected_option)
+    else:
+        st.error("スプレッドシートのコピーが存在しません。")
 
-            # 年齢カテゴリのマッピング
-            age_categories = {
-                "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
-                "12～18ヶ月": 5, "18～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
-                "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
-            }
 
-            # シート1のデータを取得
-            sheet1_data = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!A3:B13"
-            ).execute().get('values', [])
+        # スプレッドシートのデータを取得して反映
+try:
+    # 各カテゴリと選択肢をスプレッドシートに書き込む
+    for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
+        write_to_sheets(st.session_state.copied_spreadsheet_id, "シート1", f"A{index + 2}", category)
+        write_to_sheets(st.session_state.copied_spreadsheet_id, "シート1", f"B{index + 2}", selected_option)
 
-            category_names = [row[0].strip() for row in sheet1_data]
-            age_range = [row[1].strip() for row in sheet1_data]
+    # 年齢カテゴリのマッピング
+    age_categories = {
+        "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
+        "12～18ヶ月": 5, "18～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
+        "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
+    }
 
-            # 年齢を数値に変換
-            converted_values = [[age_categories.get(age, "")] for age in age_range]
+    # シート1のデータを取得
+    sheet1_data = service.spreadsheets().values().get(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!A3:B13"
+    ).execute().get('values', [])
 
-            # シート1のC3:C13に数値を設定
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!C3:C13",
-                valueInputOption="RAW",
-                body={"values": converted_values}
-            ).execute()
+    category_names = [row[0].strip() for row in sheet1_data]
+    age_range = [row[1].strip() for row in sheet1_data]
 
-            # シート2のデータを取得
-            sheet2_data = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range="シート2!A1:V"
-            ).execute().get('values', [])
+    # 年齢を数値に変換
+    converted_values = [[age_categories.get(age, "")] for age in age_range]
 
-            headers = [h.strip() for h in sheet2_data[0]]
-            data_map = {}
-            for row in sheet2_data[1:]:
-                age_step = row[21] if len(row) > 21 else ""
-                if not age_step.isdigit():
-                    continue
-                for j, key in enumerate(headers):
-                    if key not in data_map:
-                        data_map[key] = {}
-                    data_map[key][int(age_step)] = row[j]
+    # シート1のC3:C13に数値を設定
+    service.spreadsheets().values().update(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!C3:C13",
+        valueInputOption="RAW",
+        body={"values": converted_values}
+    ).execute()
 
-            # シート1のD3:D13に対応する値を設定
-            results = [[data_map.get(category, {}).get(age[0], "該当なし")]
-                       for category, age in zip(category_names, converted_values)]
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!D3:D13",
-                valueInputOption="RAW",
-                body={"values": results}
-            ).execute()
+    # シート2のデータを取得
+    sheet2_data = service.spreadsheets().values().get(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート2!A1:V"
+    ).execute().get('values', [])
 
-            # A3:C13をA18:C28にコピー
-            sheet1_copy_data = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!A3:C13"
-            ).execute().get('values', [])
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!A18:C28",
-                valueInputOption="RAW",
-                body={"values": sheet1_copy_data}
-            ).execute()
+    headers = [h.strip() for h in sheet2_data[0]]
+    data_map = {}
+    for row in sheet2_data[1:]:
+        age_step = row[21] if len(row) > 21 else ""
+        if not age_step.isdigit():
+            continue
+        for j, key in enumerate(headers):
+            if key not in data_map:
+                data_map[key] = {}
+            data_map[key][int(age_step)] = row[j]
 
-            # C18:C28の値を+1（最大値12を超えない）
-            updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!C18:C28",
-                valueInputOption="RAW",
-                body={"values": updated_c_values}
-            ).execute()
+    # シート1のD3:D13に対応する値を設定
+    results = [[data_map.get(category, {}).get(age[0], "該当なし")]
+               for category, age in zip(category_names, converted_values)]
+    service.spreadsheets().values().update(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!D3:D13",
+        valueInputOption="RAW",
+        body={"values": results}
+    ).execute()
 
-            # D18:D28にシート2のデータを基に対応値を設定
-            new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
-                           for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""]
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!D18:D28",
-                valueInputOption="RAW",
-                body={"values": new_results}
-            ).execute()
-            
-            chart_request = {
-                  "requests": [
-                    {
-                      "addChart": {
-                          "chart": {
-                            "spec": {
-                               "title": "項目別発達段階（能力レーダーチャート）",
-                               "basicChart": {
-                                 "chartType": "RADAR",
-                                 "domains": [{"domain": {"sourceRange": {"sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]}}}],
-                                 "series": [
-                                    {"series": {"sourceRange": {"sources": [{"sheetId": sheet_id, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]}}}
-                                 ],
-                                 "headerCount": 1
-                               }
-                            },
-                            "position": {"overlayPosition": {"anchorCell": {"sheetId": sheet_id, "rowIndex": 2, "columnIndex": 6}}}
-                          }
-                      }
+    # A3:C13をA18:C28にコピー
+    sheet1_copy_data = service.spreadsheets().values().get(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!A3:C13"
+    ).execute().get('values', [])
+    service.spreadsheets().values().update(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!A18:C28",
+        valueInputOption="RAW",
+        body={"values": sheet1_copy_data}
+    ).execute()
+
+    # C18:C28の値を+1（最大値12を超えない）
+    updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
+    service.spreadsheets().values().update(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!C18:C28",
+        valueInputOption="RAW",
+        body={"values": updated_c_values}
+    ).execute()
+
+    # D18:D28にシート2のデータを基に対応値を設定
+    new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
+                   for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""]
+    service.spreadsheets().values().update(
+        spreadsheetId=st.session_state.copied_spreadsheet_id,
+        range="シート1!D18:D28",
+        valueInputOption="RAW",
+        body={"values": new_results}
+    ).execute()
+
+    # レーダーチャートを追加
+    chart_request = {
+        "requests": [
+            {
+                "addChart": {
+                    "chart": {
+                        "spec": {
+                            "title": "項目別発達段階（能力レーダーチャート）",
+                            "basicChart": {
+                                "chartType": "RADAR",
+                                "domains": [{"domain": {"sourceRange": {"sources": [{"sheetId": 0, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]}}}],
+                                "series": [
+                                    {"series": {"sourceRange": {"sources": [{"sheetId": 0, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]}}}
+                                ],
+                                "headerCount": 1
+                            }
+                        },
+                        "position": {"overlayPosition": {"anchorCell": {"sheetId": 0, "rowIndex": 2, "columnIndex": 6}}}
                     }
-                  ]
+                }
             }
-            service.spreadsheets().batchUpdate(
-             spreadsheetId=spreadsheet_id, body=chart_request
-            ).execute()
+        ]
+    }
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=st.session_state.copied_spreadsheet_id, body=chart_request
+    ).execute()
+
+except Exception as e:
+    st.error(f"エラーが発生しました: {e}")
 
 
-        except Exception as e:
-            st.error(f"エラーが発生しました: {e}")
             
     
 # スプレッドシートを開く
@@ -259,13 +267,13 @@ def main():
  
 
 # EXCELを保存
-    if st.button("EXCELを保存"):
-       st.session_state.last_access_time = time.time()  # 最終アクセス時間を更新
-
-       if st.session_state.copied_spreadsheet_id:
+    # Excelのダウンロード機能
+if st.button("EXCELを保存"):
+    copied_id = st.session_state.copied_spreadsheet_id
+    if copied_id:
         try:
             request = drive_service.files().export_media(
-                fileId=st.session_state.copied_spreadsheet_id,
+                fileId=copied_id,
                 mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             file_data = io.BytesIO()
@@ -273,18 +281,18 @@ def main():
             done = False
             while not done:
                 status, done = downloader.next_chunk()
-
+            
             file_data.seek(0)
             st.download_button(
                 label="PCに結果を保存",
-                data=file_data,
+                data=file_data.read(),
                 file_name="spreadsheet.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         except Exception as e:
-            st.error(f"Excelの保存中にエラーが発生しました: {e}")
-       else:
-        st.warning("まだスプレッドシートのコピーが作成されていません。")
+            st.error(f"Excelの保存中にエラーが発生: {e}")
+    else:
+        st.warning("スプレッドシートのコピーが作成されていません。")
 
     st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
    
