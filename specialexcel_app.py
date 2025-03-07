@@ -217,55 +217,56 @@ def main():
 
             def add_scatter_chart(spreadsheet_id):
              chart_request = {
-              "requests": [
-            
-                "addChart": {
-                    "chart": {
-                        "spec": {
-                            "title": "項目別発達段階（能力チャート）",
-                            "basicChart": {
-                                "chartType": "SCATTER",  # 散布図
-                                "legendPosition": "BOTTOM_LEGEND",
-                                "axis": [
-                                    {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
-                                    {"position": "LEFT_AXIS", "title": "数値"}
-                                ],
-                                "domains": [{
-                                    "domain": {
-                                        "sourceRange": {
-                                            "sources": [{
-                                                "sheetId": 0,
-                                                "startRowIndex": 2, "endRowIndex": 13,
-                                                "startColumnIndex": 0, "endColumnIndex": 1
-                                            }]
-                                        }
+    "requests": [
+        {
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "項目別発達段階（能力チャート）",
+                        "basicChart": {
+                            "chartType": "SCATTER",  # 散布図
+                            "legendPosition": "BOTTOM_LEGEND",
+                            "axis": [
+                                {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
+                                {"position": "LEFT_AXIS", "title": "数値"}
+                            ],
+                            "domains": [{
+                                "domain": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": 0,
+                                            "startRowIndex": 2, "endRowIndex": 13,
+                                            "startColumnIndex": 0, "endColumnIndex": 1
+                                        }]
                                     }
-                                }],
-                                "series": [{
-                             "series": {
-                          "sourceRange": {
-                            "sources": [{
-                "sheetId": 0,
-                "startRowIndex": 2, "endRowIndex": 13,
-                "startColumnIndex": 2, "endColumnIndex": 3
-            }]
-        }
-    },
-    "targetAxis": "LEFT_AXIS"  # 修正: "series" のリスト内に移動
-}]
-                        },
-                        "position": {
-                            "overlayPosition": {
-                                "anchorCell": {
-                                    "sheetId": 0, "rowIndex": 13, "columnIndex": 6  # G14
                                 }
+                            }],
+                            "series": [{
+                                "series": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": 0,
+                                            "startRowIndex": 2, "endRowIndex": 13,
+                                            "startColumnIndex": 2, "endColumnIndex": 3
+                                        }]
+                                    }
+                                },
+                                "targetAxis": "LEFT_AXIS"
+                            }]
+                        }
+                    },
+                    "position": {
+                        "overlayPosition": {
+                            "anchorCell": {
+                                "sheetId": 0, "rowIndex": 13, "columnIndex": 6  # G14
                             }
                         }
                     }
                 }
             }
-        ]
-    }
+        }
+    ]
+}
              service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=chart_request).execute()
 
 # 実行処理
