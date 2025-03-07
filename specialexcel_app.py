@@ -93,7 +93,7 @@ def main():
     # ★ 修正：変数 selected_options を関数スコープ内に定義
     selected_options = {category: st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
                         for index, category in enumerate(categories, start=1)}
-    st.info("「スプレッドシートに書き込む」を押してから「スプレッドシートを開く」⇒保存したい人は「Excelに保存を」押してください。※保存の場合レーダーチャートは保存されないので、欲しい方はスクリーンショット等でご対応ください。")
+    st.info("「スプレッドシートに書き込む」を押してから「スプレッドシートを開く」⇒保存したい人は「Excelに保存を」押してください。")
     if st.button("スプレッドシートに書き込む"):
      st.session_state.last_access_time = time.time()
     
@@ -318,7 +318,7 @@ def main():
     else:
         st.warning("スプレッドシートのコピーが作成されていません。")
 
-    st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
+        st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
    
 # Excelダウンロード機能
     #if st.button("EXCELを保存"):
