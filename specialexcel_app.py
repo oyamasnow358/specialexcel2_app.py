@@ -200,61 +200,79 @@ def main():
                 body={"values": new_results}
             ).execute()
 
-            chart_request = {
-    "requests": [
-        {
-            "addChart": {
-                "chart": {
-                    "spec": {
-                        "title": "項目別発達段階（能力チャート）",
-                        "basicChart": {
-                            "chartType": "LINE",  # 折れ線グラフを使用
-                            "legendPosition": "BOTTOM_LEGEND",
-                            "axis": [
-                                {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
-                                {"position": "LEFT_AXIS", "title": "数値"}
-                            ],
-                            "domains": [{
-                                "domain": {
-                                    "sourceRange": {
-                                        "sources": [{
-                                            "sheetId": 0,
-                                            "startRowIndex": 2, "endRowIndex": 13,
-                                            "startColumnIndex": 0, "endColumnIndex": 1
-                                        }]
+            def delete_previous_scatter_chart(spreadsheet_id):
+    # 既存のグラフを取得
+              sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+              charts = sheet_metadata.get('sheets', [])[0].get('charts', [])
+
+              requests = []
+              for chart in charts:
+                  chart_id = chart.get('chartId')
+                  chart_spec = chart.get('spec', {}).get('basicChart', {})
+                  if chart_spec.get('chartType') == "SCATTER":  # 散布図のみ削除
+                       requests.append({"deleteChart": {"chartId": chart_id}})
+
+              if requests:
+                 service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}).execute()
+
+            def add_scatter_chart(spreadsheet_id):
+             chart_request = {
+               "requests": [
+                  {
+                   "addChart": {
+                    "chart": {
+                        "spec": {
+                            "title": "項目別発達段階（能力チャート）",
+                            "basicChart": {
+                                "chartType": "SCATTER",  # 散布図
+                                "legendPosition": "BOTTOM_LEGEND",
+                                "axis": [
+                                    {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
+                                    {"position": "LEFT_AXIS", "title": "数値"}
+                                ],
+                                "domains": [{
+                                    "domain": {
+                                        "sourceRange": {
+                                            "sources": [{
+                                                "sheetId": 0,
+                                                "startRowIndex": 2, "endRowIndex": 13,
+                                                "startColumnIndex": 0, "endColumnIndex": 1
+                                            }]
+                                        }
                                     }
-                                }
-                            }],
-                            "series": [{
-                                "series": {
-                                    "sourceRange": {
-                                        "sources": [{
-                                            "sheetId": 0,
-                                            "startRowIndex": 2, "endRowIndex": 13,
-                                            "startColumnIndex": 2, "endColumnIndex": 3
-                                        }]
+                                }],
+                                "series": [{
+                                    "series": {
+                                        "sourceRange": {
+                                            "sources": [{
+                                                "sheetId": 0,
+                                                "startRowIndex": 2, "endRowIndex": 13,
+                                                "startColumnIndex": 2, "endColumnIndex": 3
+                                            }]
+                                        }
                                     }
                                 },
-                                "targetAxis": "LEFT_AXIS"
-                            }],
-                            "headerCount": 1
-                        }
-                    },
-                    "position": {
-                        "overlayPosition": {
-                            "anchorCell": {
-                                "sheetId": 0, "rowIndex": 2, "columnIndex": 6
+                                "targetAxis": "LEFT_AXIS"]
+                            }
+                        },
+                        "position": {
+                            "overlayPosition": {
+                                "anchorCell": {
+                                    "sheetId": 0, "rowIndex": 13, "columnIndex": 6  # G14
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    ]
-}
-            service.spreadsheets().batchUpdate(
-            spreadsheetId=st.session_state.copied_spreadsheet_id, body=chart_request
-            ).execute()
+        ]
+    }
+             service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=chart_request).execute()
+
+# 実行処理
+            spreadsheet_id = st.session_state.copied_spreadsheet_id
+            delete_previous_scatter_chart(spreadsheet_id)  # 既存の散布図を削除
+            add_scatter_chart(spreadsheet_id)  # 新しい散布図を追加
 
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
