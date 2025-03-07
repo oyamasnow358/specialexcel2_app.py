@@ -96,6 +96,7 @@ def main():
 
     if st.button("スプレッドシートに書き込む"):
      st.session_state.last_access_time = time.time()
+    st.write("「スプレッドシートに書き込む」を押してから「スプレッドシートを開く」⇒保存したい人は「Excelに保存を」押してください。※保存の場合レーダーチャートは保存されないので、欲しい方はスクリーンショット等でご対応ください。")
 
     # コピーがまだない場合、作成する
     if st.session_state.copied_spreadsheet_id is None:
