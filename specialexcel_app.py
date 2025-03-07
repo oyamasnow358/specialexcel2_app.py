@@ -217,9 +217,9 @@ def main():
 
             def add_scatter_chart(spreadsheet_id):
              chart_request = {
-               "requests": [
-                  {
-                   "addChart": {
+              "requests": [
+            
+                "addChart": {
                     "chart": {
                         "spec": {
                             "title": "項目別発達段階（能力チャート）",
@@ -242,18 +242,17 @@ def main():
                                     }
                                 }],
                                 "series": [{
-                                    "series": {
-                                        "sourceRange": {
-                                            "sources": [{
-                                                "sheetId": 0,
-                                                "startRowIndex": 2, "endRowIndex": 13,
-                                                "startColumnIndex": 2, "endColumnIndex": 3
-                                            }]
-                                        }
-                                    }
-                                },
-                                "targetAxis": "LEFT_AXIS"]
-                            }
+                             "series": {
+                          "sourceRange": {
+                            "sources": [{
+                "sheetId": 0,
+                "startRowIndex": 2, "endRowIndex": 13,
+                "startColumnIndex": 2, "endColumnIndex": 3
+            }]
+        }
+    },
+    "targetAxis": "LEFT_AXIS"  # 修正: "series" のリスト内に移動
+}]
                         },
                         "position": {
                             "overlayPosition": {
