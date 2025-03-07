@@ -200,36 +200,9 @@ def main():
                 body={"values": new_results}
             ).execute()
 
-            def delete_previous_scatter_chart(spreadsheet_id):
-              """ 既存の散布図グラフを削除する """
-            try:
-        # スプレッドシートのメタデータを取得
-                 sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-                 sheets = sheet_metadata.get('sheets', [])
+            
 
-                 requests = []
-
-        # 各シートを走査し、埋め込みオブジェクト（グラフ）を探す
-                 for sheet in sheets:
-                    sheet_id = sheet.get("properties", {}).get("sheetId")
-                 if "drawings" in sheet:  # Google Sheets APIでは `drawings` にグラフが含まれる
-                    for drawing in sheet["drawings"]:
-                     object_id = drawing.get("objectId")
-                     requests.append({"deleteEmbeddedObject": {"objectId": object_id}})
-
-        # リクエストがある場合に削除処理を実行
-                 if requests:
-                    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}).execute()
-                    st.success("既存のグラフを削除しました！")
-                 else:
-                    st.info("削除対象のグラフは見つかりませんでした。")
-
-            except Exception as e:
-               st.error(f"グラフ削除中にエラーが発生しました: {e}")
-            updated_c_values = [
-                [min(12, int(row[2]) + 1) if row[2] and str(row[2]).isdigit() else ""]
-                 for row in sheet1_copy_data
-            ]
+        
             def add_scatter_chart(spreadsheet_id):
              chart_request = {
 
@@ -250,8 +223,8 @@ def main():
                             "legendPosition": "BOTTOM_LEGEND",
                             "axis": [
             {
-                "position": "BOTTOM_AXIS", "title": "カテゴリ",
-                "position": "LEFT_AXIS", "title": "数値"
+                "position": "BOTTOM_AXIS",
+                "title": "X Axis"
             },
             {
                 "position": "LEFT_AXIS",
