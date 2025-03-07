@@ -200,31 +200,60 @@ def main():
                 body={"values": new_results}
             ).execute()
 
-            # レーダーチャートを追加
             chart_request = {
-                "requests": [
-                    {
-                        "addChart": {
-                            "chart": {
-                                "spec": {
-                                    "title": "項目別発達段階（能力レーダーチャート）",
-                                    "basicChart": {
-                                        "chartType": "RADAR",
-                                        "domains": [{"domain": {"sourceRange": {"sources": [{"sheetId": 0, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 0, "endColumnIndex": 1}]}}}],
-                                        "series": [
-                                            {"series": {"sourceRange": {"sources": [{"sheetId": 0, "startRowIndex": 2, "endRowIndex": 13, "startColumnIndex": 2, "endColumnIndex": 3}]}}}
-                                        ],
-                                        "headerCount": 1
+    "requests": [
+        {
+            "addChart": {
+                "chart": {
+                    "spec": {
+                        "title": "項目別発達段階（能力チャート）",
+                        "basicChart": {
+                            "chartType": "LINE",  # 折れ線グラフを使用
+                            "legendPosition": "BOTTOM_LEGEND",
+                            "axis": [
+                                {"position": "BOTTOM_AXIS", "title": "カテゴリ"},
+                                {"position": "LEFT_AXIS", "title": "数値"}
+                            ],
+                            "domains": [{
+                                "domain": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": 0,
+                                            "startRowIndex": 2, "endRowIndex": 13,
+                                            "startColumnIndex": 0, "endColumnIndex": 1
+                                        }]
+                                    }
+                                }
+                            }],
+                            "series": [{
+                                "series": {
+                                    "sourceRange": {
+                                        "sources": [{
+                                            "sheetId": 0,
+                                            "startRowIndex": 2, "endRowIndex": 13,
+                                            "startColumnIndex": 2, "endColumnIndex": 3
+                                        }]
                                     }
                                 },
-                                "position": {"overlayPosition": {"anchorCell": {"sheetId": 0, "rowIndex": 2, "columnIndex": 6}}}
+                                "targetAxis": "LEFT_AXIS"
+                            }],
+                            "headerCount": 1
+                        }
+                    },
+                    "position": {
+                        "overlayPosition": {
+                            "anchorCell": {
+                                "sheetId": 0, "rowIndex": 2, "columnIndex": 6
                             }
                         }
                     }
-                ]
+                }
             }
+        }
+    ]
+}
             service.spreadsheets().batchUpdate(
-                spreadsheetId=copied_id, body=chart_request
+            spreadsheetId=st.session_state.copied_spreadsheet_id, body=chart_request
             ).execute()
 
         except Exception as e:
