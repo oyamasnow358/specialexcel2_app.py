@@ -179,6 +179,9 @@ def main():
              [min(12, int(row[0]) + 1) if row and str(row[0]).isdigit() else ""]
              for row in source_values
             ]
+            # **デバッグ用に出力**
+            print("updated_c_values:", updated_c_values)
+            print("updated_c_values の行数:", len(updated_c_values))  # 11 になってるか確認
             if len(updated_c_values) != 11:
               raise ValueError(f"updated_c_values の行数が 11 ではありません: {len(updated_c_values)} 行")
 
