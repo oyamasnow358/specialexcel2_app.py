@@ -160,7 +160,8 @@ def main():
                     data_map[key][int(age_step)] = row[j]
 
             results = [[data_map.get(category, {}).get(age[0], "該当なし")]
-                       for category, age in zip(category_names, converted_values)]
+           for category, age in zip(categories, converted_values)]
+
 
             # A3:C13をA18:C28にコピー
             sheet1_copy_data = update_values + converted_values
