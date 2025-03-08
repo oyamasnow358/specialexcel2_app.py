@@ -195,9 +195,9 @@ def main():
 # すべての更新処理を batchUpdate にまとめる
             batch_requests["data"].extend([
               {"range": "シート1!D3:D13", "values": results},
-              {"range": "シート1!A18:C28", "values": sheet1_copy_data},
-              {"range": "シート1!C18:C28", "values": updated_c_values},
-              {"range": "シート1!D18:D28", "values": new_results}
+              {"range": "シート1!A18:C28", "values": sheet1_copy_data[:11]},  # 11行に制限
+              {"range": "シート1!C18:C28", "values": updated_c_values[:11]},  # 11行に制限
+              {"range": "シート1!D18:D28", "values": new_results[:11]}  # 11行に制限
             ])
 
             service.spreadsheets().values().batchUpdate(
