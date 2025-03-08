@@ -125,21 +125,19 @@ def main():
                 "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
             }
 
-            sheet1_data = service.spreadsheets().values().get(
-                spreadsheetId=copied_id,
-                range="シート1!A3:B13"
-            ).execute().get('values', [])
-
-            category_names = [row[0].strip() for row in sheet1_data]
-            age_range = [row[1].strip() for row in sheet1_data]
-
-            converted_values = [[age_categories.get(age, "")] for age in age_range]
-
-            service.spreadsheets().values().update(
-                spreadsheetId=copied_id,
-                range="シート1!C3:C13",
-                valueInputOption="RAW",
-                body={"values": converted_values}
+            converted_values = [[age_categories.get(selected_options[category], "")] for category in categories]
+        
+            batch_requests = {
+            "valueInputOption": "RAW",
+            "data": [
+                {"range": "シート1!A3:B13", "values": update_values},
+                {"range": "シート1!C3:C13", "values": converted_values}
+            ]
+            }
+        
+            service.spreadsheets().values().batchUpdate(
+            spreadsheetId=copied_id,
+            body=batch_requests
             ).execute()
 
             # シート2のデータ取得
@@ -162,43 +160,32 @@ def main():
             results = [[data_map.get(category, {}).get(age[0], "該当なし")]
                        for category, age in zip(category_names, converted_values)]
 
-            service.spreadsheets().values().update(
-                spreadsheetId=copied_id,
-                range="シート1!D3:D13",
-                valueInputOption="RAW",
-                body={"values": results}
-            ).execute()
-
             # A3:C13をA18:C28にコピー
-            sheet1_copy_data = service.spreadsheets().values().get(
-                spreadsheetId=copied_id,
-                range="シート1!A3:C13"
-            ).execute().get('values', [])
+            sheet1_copy_data = update_values + converted_values
 
-            service.spreadsheets().values().update(
-                spreadsheetId=copied_id,
-                range="シート1!A18:C28",
-                valueInputOption="RAW",
-                body={"values": sheet1_copy_data}
-            ).execute()
+# C18:C28 の値を +1（最大値12を超えない）
+            updated_c_values = [
+             [min(12, int(row[2]) + 1) if len(row) > 2 and str(row[2]).isdigit() else ""]
+             for row in sheet1_copy_data
+            ]
 
-            # C18:C28の値を+1（最大値12を超えない）
-            updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
-            service.spreadsheets().values().update(
-                spreadsheetId=copied_id,
-                range="シート1!C18:C28",
-                valueInputOption="RAW",
-                body={"values": updated_c_values}
-            ).execute()
+# D18:D28 の計算
+            new_results = [
+               [data_map.get(row[0], {}).get(c_value[0], "該当なし")]
+               for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""
+            ]
 
-            # D18:D28の計算
-            new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
-                           for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""]
-            service.spreadsheets().values().update(
-                spreadsheetId=copied_id,
-                range="シート1!D18:D28",
-                valueInputOption="RAW",
-                body={"values": new_results}
+# すべての更新処理を batchUpdate にまとめる
+            batch_requests["data"].extend([
+              {"range": "シート1!D3:D13", "values": results},
+              {"range": "シート1!A18:C28", "values": sheet1_copy_data},
+              {"range": "シート1!C18:C28", "values": updated_c_values},
+              {"range": "シート1!D18:D28", "values": new_results}
+            ])
+
+            service.spreadsheets().values().batchUpdate(
+              spreadsheetId=copied_id,
+              body=batch_requests
             ).execute()
 
             def delete_previous_scatter_chart(spreadsheet_id):
