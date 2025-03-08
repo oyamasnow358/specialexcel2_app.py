@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
 from googleapiclient.http import MediaIoBaseDownload
+from some_module import copy_spreadsheet
 
 # Secrets から認証情報を取得
 credentials = Credentials.from_service_account_info(
