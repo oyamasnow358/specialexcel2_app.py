@@ -144,28 +144,23 @@ def main():
 
             # シート2のデータ取得
             sheet2_data = service.spreadsheets().values().get(
-             spreadsheetId=copied_id,
-             range="シート2!A1:V"
+                spreadsheetId=copied_id,
+                range="シート2!A1:V"
             ).execute().get('values', [])
 
-# データが空の場合はエラーを出して処理を中断
-            if not sheet2_data:
-             st.error("シート2のデータが取得できませんでした。範囲 'A1:V' にデータがあるか確認してください。")
-             return
-
             headers = [h.strip() for h in sheet2_data[0]]
-
             data_map = {}
             for row in sheet2_data[1:]:
-               if len(row) <= 21:  # 21列未満ならスキップ
-                 continue
-               age_step = row[21]
-               if not age_step.isdigit():
-                 continue
-               for j, key in enumerate(headers):
-                 if key not in data_map:
-                    data_map[key] = {}
-                 data_map[key][int(age_step)] = row[j]
+                age_step = row[21] if len(row) > 21 else ""
+                if not age_step.isdigit():
+                    continue
+                for j, key in enumerate(headers):
+                    if key not in data_map:
+                        data_map[key] = {}
+                    data_map[key][int(age_step)] = row[j]
+
+            results = [[data_map.get(category, {}).get(age[0], "該当なし")]
+           for category, age in zip(categories, converted_values)]
 
 
             # A3:C13をA18:C28にコピー
