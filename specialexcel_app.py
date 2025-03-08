@@ -167,15 +167,17 @@ def main():
             sheet1_copy_data = update_values + converted_values
 
 # C18:C28 の値を +1（最大値12を超えない）
-            num_rows = 11  # C18:C28 は 11行
-            converted_values = converted_values[:num_rows]  # 余分なデータはカット
-            while len(converted_values) < num_rows:
-             converted_values.append([""])  # 足りない部分は空値で補完
+            # C3:C13 から値を取得し、+1 する（最大12）
+            source_values = converted_values[:11]  # C3:C13 のデータ（最大11行）
 
-# C列の値を +1（最大値12を超えない）
+# データの不足を防ぐため、必ず11行にする
+            while len(source_values) < 11:
+              source_values.append([""])  # 足りない部分は空欄
+
+# +1 した値を updated_c_values に格納（最大12）
             updated_c_values = [
-              [min(12, int(row[1]) + 1) if len(row) > 1 and str(row[1]).isdigit() else ""]
-              for row in converted_values
+             [min(12, int(row[0]) + 1) if row and str(row[0]).isdigit() else ""]
+             for row in source_values
             ]
 
 # D18:D28 の計算
