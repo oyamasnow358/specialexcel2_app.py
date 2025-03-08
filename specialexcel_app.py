@@ -47,32 +47,40 @@ def get_folder_id(file_id):
     return file_info.get("parents", [None])[0]  # 最初のフォルダIDを取得
 
 # スプレッドシートのコピーを作成
-def copy_spreadsheet():
-    try:
-        copied_file = drive_service.files().copy(
-            fileId=spreadsheet_id,
-            body={
-                "name": "コピーされたスプレッドシート",
-                "parents": [FOLDER_ID]
-            }
-        ).execute()
-        copied_file_id = copied_file["id"]
-        st.session_state.copied_spreadsheet_id = copied_file_id
-        st.success("スプレッドシートのコピーを作成しました！")
-    except Exception as e:
-        st.error(f"スプレッドシートのコピー作成中にエラーが発生: {e}")
+#def copy_spreadsheet():
+ #   try:
+  #      copied_file = drive_service.files().copy(
+   ##        body={
+     #           "name": "コピーされたスプレッドシート",
+      #          "parents": [FOLDER_ID]
+       #     }
+        #).execute()
+       # copied_file_id = copied_file["id"]
+        #st.session_state.copied_spreadsheet_id = copied_file_id
+        #st.success("スプレッドシートのコピーを作成しました！")
+    #except Exception as e:
+     #   st.error(f"スプレッドシートのコピー作成中にエラーが発生: {e}")
 
 
 
+# **一定時間（10分間）操作がなかったら削除**
 def check_and_delete_old_copy():
     current_time = time.time()
     if st.session_state.copied_spreadsheet_id and (current_time - st.session_state.last_access_time > 600):  # 10分
-        try:
-            drive_service.files().delete(fileId=st.session_state.copied_spreadsheet_id).execute()
-            st.session_state.copied_spreadsheet_id = None  # コピーIDをリセット
-            st.success("古いスプレッドシートのコピーを削除しました。")
-        except Exception as e:
-            st.error(f"スプレッドシートの削除中にエラーが発生: {e}")
+      copy_spreadsheet()
+# Streamlitのメインループ内で `check_and_delete_old_copy()` を定期的に実行
+check_and_delete_old_copy()
+
+def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
+    try:
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{sheet_name}!{cell}",
+            valueInputOption="RAW",
+            body={"values": [[value]]}
+        ).execute()
+    except Exception as e:
+        st.error(f"スプレッドシートの更新中にエラーが発生: {e}")
 
 
 def main():
