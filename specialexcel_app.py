@@ -168,15 +168,16 @@ def main():
 
 # C18:C28 の値を +1（最大値12を超えない）
             updated_c_values = [
-             [min(12, int(row[2]) + 1) if len(row) > 2 and str(row[2]).isdigit() else ""]
-             for row in sheet1_copy_data[:11]  # 最初の10行だけ処理
+             [min(12, int(row[1]) + 1) if len(row) > 1 and str(row[1]).isdigit() else ""]
+             for row in converted_values
             ]
 
 # D18:D28 の計算
             new_results = [
-               [data_map.get(row[0], {}).get(c_value[0], "該当なし")]
-               for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""
+             [data_map.get(category, {}).get(c_value[0], "該当なし")]
+             for category, c_value in zip(categories, updated_c_values) if c_value[0] != ""
             ]
+
 
 # すべての更新処理を batchUpdate にまとめる
             batch_requests["data"].extend([
