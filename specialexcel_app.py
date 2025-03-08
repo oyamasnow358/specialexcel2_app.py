@@ -9,7 +9,6 @@ from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
 from googleapiclient.http import MediaIoBaseDownload
-from some_module import copy_spreadsheet
 
 # Secrets から認証情報を取得
 credentials = Credentials.from_service_account_info(
@@ -48,19 +47,20 @@ def get_folder_id(file_id):
     return file_info.get("parents", [None])[0]  # 最初のフォルダIDを取得
 
 # スプレッドシートのコピーを作成
-#def copy_spreadsheet():
- #   try:
-  #      copied_file = drive_service.files().copy(
-   ##        body={
-     #           "name": "コピーされたスプレッドシート",
-      #          "parents": [FOLDER_ID]
-       #     }
-        #).execute()
-       # copied_file_id = copied_file["id"]
-        #st.session_state.copied_spreadsheet_id = copied_file_id
-        #st.success("スプレッドシートのコピーを作成しました！")
-    #except Exception as e:
-     #   st.error(f"スプレッドシートのコピー作成中にエラーが発生: {e}")
+def copy_spreadsheet():
+    try:
+        copied_file = drive_service.files().copy(
+            fileId=spreadsheet_id,
+            body={
+                "name": "コピーされたスプレッドシート",
+                "parents": [FOLDER_ID]
+            }
+        ).execute()
+        copied_file_id = copied_file["id"]
+        st.session_state.copied_spreadsheet_id = copied_file_id
+        st.success("スプレッドシートのコピーを作成しました！")
+    except Exception as e:
+        st.error(f"スプレッドシートのコピー作成中にエラーが発生: {e}")
 
 
 
