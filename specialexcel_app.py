@@ -167,9 +167,15 @@ def main():
             sheet1_copy_data = update_values + converted_values
 
 # C18:C28 の値を +1（最大値12を超えない）
+            num_rows = 11  # C18:C28 は 11行
+            converted_values = converted_values[:num_rows]  # 余分なデータはカット
+            while len(converted_values) < num_rows:
+             converted_values.append([""])  # 足りない部分は空値で補完
+
+# C列の値を +1（最大値12を超えない）
             updated_c_values = [
-             [min(12, int(row[1]) + 1) if len(row) > 1 and str(row[1]).isdigit() else ""]
-             for row in converted_values
+              [min(12, int(row[1]) + 1) if len(row) > 1 and str(row[1]).isdigit() else ""]
+              for row in converted_values
             ]
 
 # D18:D28 の計算
@@ -178,7 +184,7 @@ def main():
              for category, c_value in zip(categories, updated_c_values) if c_value[0] != ""
             ]
 
-            sheet1_copy_data = sheet1_copy_data[:11]
+            
 # すべての更新処理を batchUpdate にまとめる
             batch_requests["data"].extend([
               {"range": "シート1!D3:D13", "values": results},
