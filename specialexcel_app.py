@@ -167,9 +167,9 @@ def main():
             sheet1_copy_data = update_values + converted_values
 
 # C18:C28 の値を +1（最大値12を超えない）
-            converted_values = [
+            updated_c_values = [
              [min(12, int(row[2]) + 1) if len(row) > 2 and str(row[2]).isdigit() else ""]
-             for row in sheet1_copy_data
+             for row in sheet1_copy_data[:11]  # 最初の10行だけ処理
             ]
 
 # D18:D28 の計算
