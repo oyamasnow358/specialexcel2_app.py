@@ -39,6 +39,7 @@ if "copied_spreadsheet_id" not in st.session_state:
     st.session_state.copied_spreadsheet_id = None
 if "last_access_time" not in st.session_state:
     st.session_state.last_access_time = time.time()
+
 #orijinaruno ID
 def get_folder_id(file_id):
     """ 指定したファイルが所属するフォルダIDを取得する """
@@ -63,12 +64,13 @@ def copy_spreadsheet():
 
 
 
-# 自動削除の管理（一定時間操作がなかったら削除）
+# **一定時間（10分間）操作がなかったら削除**
 def check_and_delete_old_copy():
     current_time = time.time()
-    if st.session_state.copied_spreadsheet_id and (current_time - st.session_state.last_access_time > 1800):  # 30分
-        delete_copied_spreadsheet()
-
+    if st.session_state.copied_spreadsheet_id and (current_time - st.session_state.last_access_time > 600):  # 10分
+      copy_spreadsheet()
+# Streamlitのメインループ内で `check_and_delete_old_copy()` を定期的に実行
+check_and_delete_old_copy()
 
 def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
     try:
