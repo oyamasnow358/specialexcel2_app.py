@@ -134,30 +134,25 @@ def main():
             ).execute()
 
             # シート2のデータ取得
-            try:
-              sheet2_data = service.spreadsheets().values().get(
+            sheet2_data = service.spreadsheets().values().get(
                 spreadsheetId=copied_id,
                 range="シート2!A1:V"
-              ).execute().get('values', [])
+            ).execute().get('values', [])
 
-              if len(sheet2_data) == 0:
-                st.warning("シート2にデータがありません。")
-                sheet2_data = [[""] * 22]  # 空データを補完
-
-              headers = [h.strip() for h in sheet2_data[0]] if len(sheet2_data) > 0 else []
-              data_map = {}
-
-              for row in sheet2_data[1:]:
+            headers = [h.strip() for h in sheet2_data[0]]
+            data_map = {}
+            for row in sheet2_data[1:]:
                 age_step = row[21] if len(row) > 21 else ""
                 if not age_step.isdigit():
-                 continue
+                    continue
                 for j, key in enumerate(headers):
-                   if key not in data_map:
-                      data_map[key] = {}
-                   value = row[j] if j < len(row) else "該当なし"
-                   data_map[key][int(age_step)] = value
-            except Exception as e:
-                 st.error(f"エラーが発生しましたが処理を続行します: {e}")
+                    if key not in data_map:
+                        data_map[key] = {}
+                    data_map[key][int(age_step)] = row[j]
+
+            results = [[data_map.get(category, {}).get(age[0], "該当なし")]
+           for category, age in zip(categories, converted_values)]
+
 
             # A3:C13をA18:C28にコピー
             sheet1_copy_data = update_values + converted_values
