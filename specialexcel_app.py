@@ -64,24 +64,15 @@ def copy_spreadsheet():
 
 
 
-# **一定時間（10分間）操作がなかったら削除**
 def check_and_delete_old_copy():
     current_time = time.time()
     if st.session_state.copied_spreadsheet_id and (current_time - st.session_state.last_access_time > 600):  # 10分
-      copy_spreadsheet()
-# Streamlitのメインループ内で `check_and_delete_old_copy()` を定期的に実行
-check_and_delete_old_copy()
-
-def write_to_sheets(spreadsheet_id, sheet_name, cell, value):
-    try:
-        service.spreadsheets().values().update(
-            spreadsheetId=spreadsheet_id,
-            range=f"{sheet_name}!{cell}",
-            valueInputOption="RAW",
-            body={"values": [[value]]}
-        ).execute()
-    except Exception as e:
-        st.error(f"スプレッドシートの更新中にエラーが発生: {e}")
+        try:
+            drive_service.files().delete(fileId=st.session_state.copied_spreadsheet_id).execute()
+            st.session_state.copied_spreadsheet_id = None  # コピーIDをリセット
+            st.success("古いスプレッドシートのコピーを削除しました。")
+        except Exception as e:
+            st.error(f"スプレッドシートの削除中にエラーが発生: {e}")
 
 
 def main():
@@ -143,25 +134,30 @@ def main():
             ).execute()
 
             # シート2のデータ取得
-            sheet2_data = service.spreadsheets().values().get(
+            try:
+              sheet2_data = service.spreadsheets().values().get(
                 spreadsheetId=copied_id,
                 range="シート2!A1:V"
-            ).execute().get('values', [])
+              ).execute().get('values', [])
 
-            headers = [h.strip() for h in sheet2_data[0]]
-            data_map = {}
-            for row in sheet2_data[1:]:
+              if len(sheet2_data) == 0:
+                st.warning("シート2にデータがありません。")
+                sheet2_data = [[""] * 22]  # 空データを補完
+
+              headers = [h.strip() for h in sheet2_data[0]] if len(sheet2_data) > 0 else []
+              data_map = {}
+
+              for row in sheet2_data[1:]:
                 age_step = row[21] if len(row) > 21 else ""
                 if not age_step.isdigit():
-                    continue
+                 continue
                 for j, key in enumerate(headers):
-                    if key not in data_map:
-                        data_map[key] = {}
-                    data_map[key][int(age_step)] = row[j]
-
-            results = [[data_map.get(category, {}).get(age[0], "該当なし")]
-           for category, age in zip(categories, converted_values)]
-
+                   if key not in data_map:
+                      data_map[key] = {}
+                   value = row[j] if j < len(row) else "該当なし"
+                   data_map[key][int(age_step)] = value
+            except Exception as e:
+                 st.error(f"エラーが発生しましたが処理を続行します: {e}")
 
             # A3:C13をA18:C28にコピー
             sheet1_copy_data = update_values + converted_values
