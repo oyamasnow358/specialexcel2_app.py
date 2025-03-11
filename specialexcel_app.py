@@ -29,7 +29,7 @@ drive_service = build('drive', 'v3', credentials=credentials)
 client = storage.Client(credentials=credentials)
 
 # **スプレッドシートのIDをグローバル変数として定義**
-spreadsheet_id = "10VA09yrqyv4m653x8LdyAxT1MEd3kRAtNfteO9liLcg"
+spreadsheet_id = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 def write_to_sheets(sheet_name, cell, value):
     service.spreadsheets().values().update(
@@ -62,7 +62,7 @@ def main():
 
     sheet_name = "シート1"
 
-    categories = ["認知力・操作", "言語理解", "表出言語", "視覚記憶", "聴覚記憶", "読字", "書字", "粗大運動", "微細運動","数の概念","生活動作"]
+    categories = ["認知力・操作", "認知力・注意力", "集団参加,", "生活動作", "言語理解", "表出言語", "記憶", "読字", "書字", "粗大運動", "微細運動","数の概念"]
     options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月", "12～18ヶ月", "18～24ヶ月", "2～3歳", "3～4歳", "4～5歳", "5～6歳", "6～7歳", "7歳以上"]
 
     selected_options = {}
@@ -92,7 +92,7 @@ def main():
             # シート1のデータを取得
             sheet1_data = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!A3:B13"
+                range="シート1!A3:B14"
             ).execute().get('values', [])
 
             category_names = [row[0].strip() for row in sheet1_data]
@@ -104,7 +104,7 @@ def main():
             # シート1のC3:C13に数値を設定
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!C3:C13",
+                range="シート1!C3:C14",
                 valueInputOption="RAW",
                 body={"values": converted_values}
             ).execute()
@@ -131,7 +131,7 @@ def main():
                        for category, age in zip(category_names, converted_values)]
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!D3:D13",
+                range="シート1!D3:D14",
                 valueInputOption="RAW",
                 body={"values": results}
             ).execute()
@@ -139,11 +139,11 @@ def main():
             # A3:C13をA18:C28にコピー
             sheet1_copy_data = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!A3:C13"
+                range="シート1!A3:C14"
             ).execute().get('values', [])
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!A18:C28",
+                range="シート1!A19:C30",
                 valueInputOption="RAW",
                 body={"values": sheet1_copy_data}
             ).execute()
@@ -152,7 +152,7 @@ def main():
             updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!C18:C28",
+                range="シート1!C19:C30",
                 valueInputOption="RAW",
                 body={"values": updated_c_values}
             ).execute()
@@ -162,7 +162,7 @@ def main():
                            for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""]
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range="シート1!D18:D28",
+                range="シート1!D19:D30",
                 valueInputOption="RAW",
                 body={"values": new_results}
             ).execute()
