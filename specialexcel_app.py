@@ -62,7 +62,7 @@ def main():
 
     sheet_name = "シート1"
 
-    categories = ["認知力・操作", "認知力・注意力", "集団参加,", "生活動作", "言語理解", "表出言語", "記憶", "読字", "書字", "粗大運動", "微細運動","数の概念"]
+    categories = ["認知力・操作", "認知力・注意力", "集団参加", "生活動作", "言語理解", "表出言語", "記憶", "読字", "書字", "粗大運動", "微細運動","数の概念"]
     options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月", "12～18ヶ月", "18～24ヶ月", "2～3歳", "3～4歳", "4～5歳", "5～6歳", "6～7歳", "7歳以上"]
     #変更
     selected_options = {}
@@ -126,7 +126,7 @@ def main():
                         data_map[key] = {}
                     data_map[key][int(age_step)] = row[j]
 
-            # シート1のD3:D13に対応する値を設定
+            # シート1のD3:D14に対応する値を設定
             results = [[data_map.get(category, {}).get(age[0], "該当なし")]
                        for category, age in zip(category_names, converted_values)]
             service.spreadsheets().values().update(
