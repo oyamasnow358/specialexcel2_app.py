@@ -11,7 +11,23 @@ from google.cloud import storage
 from googleapiclient.http import MediaIoBaseDownload
 
 # 環境変数から Google 認証情報を取得
-google_credentials = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
+google_credentials_str = os.getenv("GOOGLE_CREDENTIALS")
+if google_credentials_str:
+    google_credentials = json.loads(google_credentials_str)
+else:
+    st.error("GOOGLE_CREDENTIALS が設定されていません。環境変数を確認してください。")
+
+# 認証情報を取得
+if google_credentials:
+    credentials = Credentials.from_service_account_info(
+        google_credentials,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+    )
+else:
+    st.stop()  # 認証情報がない場合、アプリを停止
 
 # Streamlit の secrets に代わる変数を作る
 st.session_state["google_credentials"] = google_credentials
