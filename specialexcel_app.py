@@ -3,12 +3,18 @@ import io
 import requests
 import sys
 import io
-
+import json
 
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
 from googleapiclient.http import MediaIoBaseDownload
+
+# 環境変数から Google 認証情報を取得
+google_credentials = json.loads(os.getenv("GOOGLE_CREDENTIALS", "{}"))
+
+# Streamlit の secrets に代わる変数を作る
+st.session_state["google_credentials"] = google_credentials
 
 # Secrets から認証情報を取得
 credentials = Credentials.from_service_account_info(
