@@ -11,10 +11,10 @@ from google.cloud import storage
 from googleapiclient.http import MediaIoBaseDownload
 
 # 🔹 環境変数から Google 認証情報を取得
-#google_credentials = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+google_credentials = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
 
 # 🔹 Google 認証情報を表示 (デバッグ用)
-#st.write("Google Service Account:", google_credentials["client_email"])
+st.write("Google Service Account:", google_credentials["client_email"])
 
 # 環境変数から Google 認証情報を取得
 google_credentials_str = os.getenv("GOOGLE_CREDENTIALS")
