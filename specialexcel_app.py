@@ -17,36 +17,34 @@ from googleapiclient.http import MediaIoBaseDownload
 #st.write("Google Service Account:", google_credentials["client_email"])
 
 # 環境変数から Google 認証情報を取得
-google_credentials_str = os.getenv("GOOGLE_CREDENTIALS")
+#google_credentials_str = os.getenv("GOOGLE_CREDENTIALS")
 
-if google_credentials_str:
-    google_credentials = json.loads(google_credentials_str)
-else:
-    st.error("GOOGLE_CREDENTIALS が設定されていません。環境変数を確認してください。")
-    st.stop()
+#if google_credentials_str:
+#    google_credentials = json.loads(google_credentials_str)
+#else:
+ #   st.error("GOOGLE_CREDENTIALS が設定されていません。環境変数を確認してください。")
+  #  st.stop()
 # 認証情報を取得
-if google_credentials:
-    credentials = Credentials.from_service_account_info(
-        google_credentials,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
-    )
-else:
-    st.stop()  # 認証情報がない場合、アプリを停止
-
-# Streamlit の secrets に代わる変数を作る
-#st.session_state["google_credentials"] = google_credentials
+#if google_credentials:
+ #   credentials = Credentials.from_service_account_info(
+ #       google_credentials,
+  #      scopes=[
+   #         "https://www.googleapis.com/auth/spreadsheets",
+    #        "https://www.googleapis.com/auth/drive"
+     #   ]
+    #)
+#else:
+ #   st.stop()  # 認証情報がない場合、アプリを停止
 
 # Secrets から認証情報を取得
-#credentials = Credentials.from_service_account_info(
-    #st.secrets["google_credentials"],
-    #scopes=[
-   #     "https://www.googleapis.com/auth/spreadsheets",
-  #      "https://www.googleapis.com/auth/drive"
- #   ]
-#)
+credentials = Credentials.from_service_account_info(
+    st.secrets["google_credentials"],
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+]
+)
+
 
 # Google Sheets API クライアントを作成
 service = build('sheets', 'v4', credentials=credentials)
