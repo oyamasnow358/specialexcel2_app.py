@@ -159,6 +159,33 @@ def main():
              body={"values": updated_b_values}
             ).execute()
 
+            # **🟢 B19:B30の段階データを取得**
+            b19_b30_values = service.spreadsheets().values().get(
+             spreadsheetId=spreadsheet_id,
+             range="シート1!B19:B30"
+            ).execute().get('values', [])
+
+            # **🔵 B列の値（段階）を整数に変換**
+            b19_b30_values = [int(row[0]) if row and row[0].isdigit() else None for row in b19_b30_values]
+
+# **🔵 段階に対応する発達年齢を取得**
+            b_to_c_mapping = {  # B列の段階をC列の発達年齢に変換
+              1: "0〜3ヶ月", 2: "3〜6ヶ月", 3: "6〜9ヶ月", 4: "9〜12ヶ月",
+              5: "12～18ヶ月", 6: "18～24ヶ月", 7: "2～3歳", 8: "3～4歳",
+              9: "4～5歳", 10: "5～6歳", 11: "6～7歳", 12: "7歳以上"
+            }
+
+# **C19:C30に対応する発達年齢をセット**
+            updated_c_values = [[b_to_c_mapping.get(b, "該当なし")] for b in b19_b30_values]
+
+# **Google SheetsにC19:C30のデータを更新**
+            service.spreadsheets().values().update(
+             spreadsheetId=spreadsheet_id,
+             range="シート1!C19:C30",
+             valueInputOption="RAW",
+             body={"values": updated_c_values}
+            ).execute()
+
     # **🟢 シート2のデータを取得**
             sheet2_data = service.spreadsheets().values().get(
              spreadsheetId=spreadsheet_id,
