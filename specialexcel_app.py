@@ -214,20 +214,30 @@ def main():
                body={"values": results}
             ).execute()
 
-    # **🟢 B19:B30の値を取得（B列のデータ更新用）**
+    # 🟢 B19:B30の値を取得（B列のデータ更新用）
             updated_b_values = [[row[1].strip()] for row in sheet1_copy_data]
 
-    # **D19:D30に対応する値を設定**
-            new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
-                   for row, c_value in zip(sheet1_copy_data, updated_b_values) if c_value[0] != ""]
+# **D19:D30に対応する値を設定**
+# data_mapから該当するデータを取得するために、正しいマッピングを使ってnew_resultsを作成
+            new_results = []
+            for row, c_value in zip(sheet1_copy_data, updated_b_values):
+    # c_valueが空でない場合にデータを取得する
+             if c_value[0] != "":
+        # カテゴリと段階に対応するデータを取得
+               category = row[0]  # A列のカテゴリ
+               stage = c_value[0]  # B列の段階（数値）
+        
+        # data_mapから該当するデータを取得
+               result_value = data_map.get(category, {}).get(int(stage), "該当なし")
+               new_results.append([result_value])
+
+# **D19:D30に対応する値を更新**
             service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!D19:D30",
-              valueInputOption="RAW",
-              body={"values": new_results}
+             spreadsheetId=spreadsheet_id,
+             range="シート1!D19:D30",
+             valueInputOption="RAW",
+             body={"values": new_results}
             ).execute()
-        except Exception as e:
-          st.error(f"エラーが発生しました: {e}")
     
 
   # ダウンロード機能
