@@ -155,6 +155,25 @@ def main():
             body={"values": updated_b_values}
             ).execute()
 
+
+             # シート2のデータを取得
+            sheet2_data = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range="シート2!A1:V"
+            ).execute().get('values', [])
+
+            headers = [h.strip() for h in sheet2_data[0]]
+            data_map = {}
+            for row in sheet2_data[1:]:
+                age_step = row[21] if len(row) > 21 else ""
+                if not age_step.isdigit():
+                    continue
+                for j, key in enumerate(headers):
+                    if key not in data_map:
+                        data_map[key] = {}
+                    data_map[key][int(age_step)] = row[j]
+
+
             # シート1のD3:D14に対応する値を設定
             results = [[data_map.get(category, {}).get(age[0], "該当なし")]
                        for category, age in zip(category_names, converted_values)]
