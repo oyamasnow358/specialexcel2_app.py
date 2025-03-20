@@ -116,42 +116,47 @@ def main():
                 "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
             }
 
-            # シート1のデータを取得
+             # シート1のデータを取得
             sheet1_data = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!A3:B14"
+             spreadsheetId=spreadsheet_id,
+             range="シート1!A3:C14"
             ).execute().get('values', [])
 
             category_names = [row[0].strip() for row in sheet1_data]
-            age_range = [row[1].strip() for row in sheet1_data]
+            age_range = [row[2].strip() for row in sheet1_data]  # C列（発達年齢）を取得
 
-            # 年齢を数値に変換
+        # 年齢を段階に変換
             converted_values = [[age_categories.get(age, "")] for age in age_range]
 
-            # シート1のC3:C13に数値を設定
+        # B3:B14に段階（1～12）を設定
             service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!C3:C14",
-                valueInputOption="RAW",
-                body={"values": converted_values}
+             spreadsheetId=spreadsheet_id,
+             range="シート1!B3:B14",
+             valueInputOption="RAW",
+             body={"values": converted_values}
             ).execute()
 
-            # シート2のデータを取得
-            sheet2_data = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range="シート2!A1:V"
+        # A3:C14をA19:C30にコピー
+            sheet1_copy_data = service.spreadsheets().values().get(
+             spreadsheetId=spreadsheet_id,
+             range="シート1!A3:C14"
             ).execute().get('values', [])
 
-            headers = [h.strip() for h in sheet2_data[0]]
-            data_map = {}
-            for row in sheet2_data[1:]:
-                age_step = row[21] if len(row) > 21 else ""
-                if not age_step.isdigit():
-                    continue
-                for j, key in enumerate(headers):
-                    if key not in data_map:
-                        data_map[key] = {}
-                    data_map[key][int(age_step)] = row[j]
+            service.spreadsheets().values().update(
+             spreadsheetId=spreadsheet_id,
+             range="シート1!A19:C30",
+             valueInputOption="RAW",
+             body={"values": sheet1_copy_data}
+            ).execute()
+
+        # C19:C30の値を+1（最大値12を超えない）
+            updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
+            service.spreadsheets().values().update(
+             spreadsheetId=spreadsheet_id,
+             range="シート1!C19:C30",
+             valueInputOption="RAW",
+             body={"values": updated_c_values}
+            ).execute()
 
             # シート1のD3:D14に対応する値を設定
             results = [[data_map.get(category, {}).get(age[0], "該当なし")]
@@ -163,26 +168,7 @@ def main():
                 body={"values": results}
             ).execute()
 
-            # A3:C13をA18:C28にコピー
-            sheet1_copy_data = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!A3:C14"
-            ).execute().get('values', [])
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!A19:C30",
-                valueInputOption="RAW",
-                body={"values": sheet1_copy_data}
-            ).execute()
-
-            # C18:C28の値を+1（最大値12を超えない）
-            updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id,
-                range="シート1!C19:C30",
-                valueInputOption="RAW",
-                body={"values": updated_c_values}
-            ).execute()
+            
 
             # D18:D28にシート2のデータを基に対応値を設定
             new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
