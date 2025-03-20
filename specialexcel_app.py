@@ -239,7 +239,8 @@ def main():
              body={"values": new_results}
             ).execute()
     
-
+        except Exception as e:
+          st.error(f"エラーが発生しました: {e}")
   # ダウンロード機能
     if st.button("スプレッドシートを開く"):
      try:
