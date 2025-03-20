@@ -219,7 +219,7 @@ def main():
 
     # **D19:D30に対応する値を設定**
             new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
-                   for row, c_value in zip(sheet1_copy_data, updated_c_values) if c_value[0] != ""]
+                   for row, c_value in zip(sheet1_copy_data, updated_b_values) if c_value[0] != ""]
             service.spreadsheets().values().update(
               spreadsheetId=spreadsheet_id,
               range="シート1!D19:D30",
