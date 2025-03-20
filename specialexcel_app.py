@@ -107,7 +107,7 @@ def main():
             # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
                 write_to_sheets(sheet_name, f"A{index + 2}", category)
-                write_to_sheets(sheet_name, f"B{index + 2}", selected_option)
+                write_to_sheets(sheet_name, f"C{index + 2}", selected_option)  # C列に発達年齢を記入
 
             # 年齢カテゴリのマッピング
             age_categories = {
