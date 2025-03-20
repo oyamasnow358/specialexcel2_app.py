@@ -137,13 +137,17 @@ def main():
              body={"values": converted_values}
             ).execute()
 
-    # A3:C14のデータをA19:C30にコピー
-            sheet1_copy_data = sheet1_data.copy()
+    
+            # A3:C13をA18:C28にコピー
+            sheet1_copy_data = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range="シート1!A3:C14"
+            ).execute().get('values', [])
             service.spreadsheets().values().update(
-             spreadsheetId=spreadsheet_id,
-             range="シート1!A19:C30",
-             valueInputOption="RAW",
-             body={"values": sheet1_copy_data}
+                spreadsheetId=spreadsheet_id,
+                range="シート1!A19:C30",
+                valueInputOption="RAW",
+                body={"values": sheet1_copy_data}
             ).execute()
 
     # B19:B30の段階を+1（最大値12を超えない）
