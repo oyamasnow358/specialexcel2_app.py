@@ -123,25 +123,22 @@ def main():
             ).execute().get('values', [])
 
             category_names = [row[0].strip() for row in sheet1_data]
-            age_range = [row[2].strip() for row in sheet1_data]  # C列（発達年齢）を取得
+            age_range = [row[2].strip() for row in sheet1_data]  # C列に発達年齢がある
+            converted_values = [[age_categories.get(age, "")] for age in age_range]# 年齢を変換
 
-        # 年齢を段階に変換
-            converted_values = [[age_categories.get(age, "")] for age in age_range]
-
-        # B3:B14に段階（1～12）を設定
+        # シート1のB3:B14に数値（段階）を設定
             service.spreadsheets().values().update(
-             spreadsheetId=spreadsheet_id,
-             range="シート1!B3:B14",
-             valueInputOption="RAW",
-             body={"values": converted_values}
+              spreadsheetId=spreadsheet_id,
+              range="シート1!B3:B14",
+              valueInputOption="RAW",
+              body={"values": converted_values}
             ).execute()
 
-        # A3:C14をA19:C30にコピー
+        # シート1のデータをA19:C30にコピー（修正後）
             sheet1_copy_data = service.spreadsheets().values().get(
              spreadsheetId=spreadsheet_id,
              range="シート1!A3:C14"
             ).execute().get('values', [])
-
             service.spreadsheets().values().update(
              spreadsheetId=spreadsheet_id,
              range="シート1!A19:C30",
@@ -149,13 +146,13 @@ def main():
              body={"values": sheet1_copy_data}
             ).execute()
 
-        # C19:C30の値を+1（最大値12を超えない）
-            updated_c_values = [[min(12, int(row[2]) + 1) if row[2].isdigit() else ""] for row in sheet1_copy_data]
+        # C19:C30（発達年齢）に変更なし、B19:B30の段階+1（最大値12を超えないように）
+            updated_b_values = [[min(12, int(row[1]) + 1) if row[1].isdigit() else ""] for row in sheet1_copy_data]
             service.spreadsheets().values().update(
-             spreadsheetId=spreadsheet_id,
-             range="シート1!C19:C30",
-             valueInputOption="RAW",
-             body={"values": updated_c_values}
+            spreadsheetId=spreadsheet_id,
+            range="シート1!B19:B30",
+            valueInputOption="RAW",
+            body={"values": updated_b_values}
             ).execute()
 
             # シート1のD3:D14に対応する値を設定
