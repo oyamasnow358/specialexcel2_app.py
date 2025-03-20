@@ -104,24 +104,27 @@ def main():
 
     if st.button("スプレッドシートに書き込む"):
         try:
-            # 各カテゴリと選択肢をスプレッドシートに書き込む
+            # 初期バッチリクエストの準備
             batch_requests = []
         
+            # 各カテゴリと選択肢をスプレッドシートに書き込む
             for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-                batch_requests.append({
-                    "updateCells": {
-                        "rows": [{"values": [{"userEnteredValue": {"stringValue": category}}]}],
-                        "fields": "*",
-                        "start": {"sheetId": 0, "rowIndex": index + 2, "columnIndex": 0}
+                batch_requests.extend([
+                    {
+                        "updateCells": {
+                            "rows": [{"values": [{"userEnteredValue": {"stringValue": category}}]}],
+                            "fields": "*",
+                            "start": {"sheetId": 0, "rowIndex": index + 2, "columnIndex": 0}
+                        }
+                    },
+                    {
+                        "updateCells": {
+                            "rows": [{"values": [{"userEnteredValue": {"stringValue": selected_option}}]}],
+                            "fields": "*",
+                            "start": {"sheetId": 0, "rowIndex": index + 2, "columnIndex": 2}
+                        }
                     }
-                })
-                batch_requests.append({
-                    "updateCells": {
-                        "rows": [{"values": [{"userEnteredValue": {"stringValue": selected_option}}]}],
-                        "fields": "*",
-                        "start": {"sheetId": 0, "rowIndex": index + 2, "columnIndex": 2}
-                    }
-                })
+                ])
         
             # 年齢カテゴリのマッピング
             age_categories = {
@@ -138,7 +141,7 @@ def main():
         
             # A列（カテゴリ名）とC列（発達年齢）を取得
             category_names = [row[0].strip() for row in sheet1_data]
-            age_range = [row[2].strip() for row in sheet1_data]  # C列に発達年齢がある
+            age_range = [row[2].strip() for row in sheet1_data]
         
             # 年齢を数値化
             converted_values = [[age_categories.get(age, "")] for age in age_range]
@@ -159,6 +162,7 @@ def main():
                 range="シート1!A3:C14"
             ).execute().get('values', [])
         
+            # コピー内容の設定
             batch_requests.append({
                 "updateCells": {
                     "rows": [{"values": row} for row in sheet1_copy_data],
@@ -178,23 +182,19 @@ def main():
                     }
                 })
         
-            # B19:B30の段階データを取得
+            # C19:C30に対応する発達年齢をセット
             b19_b30_values = service.spreadsheets().values().get(
                 spreadsheetId=spreadsheet_id,
                 range="シート1!B19:B30"
             ).execute().get('values', [])
         
-            # B列の値（段階）を整数に変換
             b19_b30_values = [int(row[0]) if row and row[0].isdigit() else None for row in b19_b30_values]
-        
-            # 段階に対応する発達年齢を取得
-            b_to_c_mapping = {  # B列の段階をC列の発達年齢に変換
+            b_to_c_mapping = {
                 1: "0〜3ヶ月", 2: "3〜6ヶ月", 3: "6〜9ヶ月", 4: "9〜12ヶ月",
                 5: "12～18ヶ月", 6: "18～24ヶ月", 7: "2～3歳", 8: "3～4歳",
                 9: "4～5歳", 10: "5～6歳", 11: "6～7歳", 12: "7歳以上"
             }
         
-            # C19:C30に対応する発達年齢をセット
             updated_c_values = [[b_to_c_mapping.get(b, "該当なし")] for b in b19_b30_values]
             for i, value in enumerate(updated_c_values):
                 batch_requests.append({
@@ -235,10 +235,8 @@ def main():
                     }
                 })
         
-            # B19:B30の値を取得（B列のデータ更新用）
+            # D19:D30に対応する値を更新
             updated_b_values = [[row[1].strip()] for row in sheet1_copy_data]
-        
-            # D19:D30に対応する値を設定
             new_results = []
             for row, c_value in zip(sheet1_copy_data, updated_b_values):
                 if c_value[0] != "":
@@ -247,7 +245,6 @@ def main():
                     result_value = data_map.get(category, {}).get(int(stage), "該当なし")
                     new_results.append([result_value])
         
-            # D19:D30に対応する値を更新
             for i, new_result in enumerate(new_results):
                 batch_requests.append({
                     "updateCells": {
@@ -265,6 +262,7 @@ def main():
         
         except Exception as e:
             st.error(f"エラーが発生しました: {e}")
+
         
   # ダウンロード機能
     if st.button("スプレッドシートを開く"):
