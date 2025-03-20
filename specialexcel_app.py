@@ -214,8 +214,8 @@ def main():
                body={"values": results}
             ).execute()
 
-    # **🟢 C19:C30の値を取得（C列のデータ更新用）**
-            updated_c_values = [[row[2].strip()] for row in sheet1_copy_data]
+    # **🟢 B19:B30の値を取得（B列のデータ更新用）**
+            updated_b_values = [[row[1].strip()] for row in sheet1_copy_data]
 
     # **D19:D30に対応する値を設定**
             new_results = [[data_map.get(row[0], {}).get(c_value[0], "該当なし")]
