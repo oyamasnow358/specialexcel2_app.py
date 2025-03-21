@@ -218,18 +218,19 @@ def main():
           # 🟢 B19:B30の値を取得（B列のデータ更新用）
           updated_b_values = [[row[1].strip()] for row in sheet1_copy_data]
       
-          # **D19:D30に対応する値を設定**
+                    # 🔵 **カテゴリと対応する段階（B19:B30）を使ってD19:D30の値を決定**
           new_results = []
-          for row, c_value in zip(sheet1_copy_data, updated_b_values):
-              if c_value[0] != "":
-                  # カテゴリと段階に対応するデータを取得
-                  category = row[0]  # A列のカテゴリ
-                  stage = c_value[0]  # B列の段階（数値）
-      
-                  # data_mapから該当するデータを取得
-                  result_value = data_map.get(category, {}).get(int(stage), "該当なし")
-                  new_results.append([result_value])
-      
+          for category_row, stage_row in zip(a19_a30_values, b19_b30_values):
+              category = category_row[0] if category_row else ""  # A列のカテゴリ
+              stage = int(stage_row[0]) if stage_row and stage_row[0].isdigit() else None  # B列の段階
+          
+              if stage is not None:
+                  result_value = data_map.get(category, {}).get(stage, "該当なし")  # シート2のデータを参照
+              else:
+                  result_value = "該当なし"
+          
+              new_results.append([result_value])
+          
           # **D19:D30に対応する値を更新**
           service.spreadsheets().values().update(
               spreadsheetId=spreadsheet_id,
