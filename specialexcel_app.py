@@ -290,7 +290,7 @@ def main():
             file_name="spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        st.info("保存EXCELにレーダーチャートは反映されません。必要な方は、画像保存〔（Windowsキー ＋ Shift + S ）⇒ダウンロードしたEXCELに貼り付け（Ctrl ＋ V）〕するか、スプレッドシートをそのまま印刷してください。")
+        st.info("保存EXCELのレーダーチャートは仕様が少し異なります。")
      except Exception as e:
         st.error(f"Excel保存中にエラーが発生しました: {e}")
 
