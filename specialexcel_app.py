@@ -214,9 +214,21 @@ def main():
               valueInputOption="RAW",
               body={"values": results}
           ).execute()
-      
-          # 🟢 B19:B30の値を取得（B列のデータ更新用）
-          updated_b_values = [[row[1].strip()] for row in sheet1_copy_data]
+          
+
+          # 🟢 **B19:B30の値を取得**
+          b19_b30_values = service.spreadsheets().values().get(
+              spreadsheetId=spreadsheet_id,
+              range="シート1!B19:B30"
+          ).execute().get('values', [])
+          
+          # 🟢 **A19:A30のカテゴリを取得**
+          a19_a30_values = service.spreadsheets().values().get(
+              spreadsheetId=spreadsheet_id,
+              range="シート1!A19:A30"
+          ).execute().get('values', [])
+
+
       
                     # 🔵 **カテゴリと対応する段階（B19:B30）を使ってD19:D30の値を決定**
           new_results = []
