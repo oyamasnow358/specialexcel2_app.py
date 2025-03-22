@@ -294,7 +294,9 @@ def main():
      except Exception as e:
         st.error(f"Excel保存中にエラーが発生しました: {e}")
 
-
+    st.markdown("---")  # 区切り線   
+    st.subheader("今までの発達チャートから成長グラフを作成する")
+    st.markdown("[発達段階の成長傾向分析](https://bunnsekiexcel-edeeuzkkntxmhdptk54v2t.streamlit.app/)")
              # **区切り線**
                 # **別のWebアプリへのリンク**
     st.markdown("---")  # 区切り線   
