@@ -163,13 +163,17 @@ else:
         st.success(f"✅ 路線データ読み込み成功: {feature_count} 本の路線が見つかりました")
 
         # 地図に描画
+        # 地図に描画
         folium.GeoJson(
             geojson_data,
             style_function=lambda feature: {
-                'color': ROUTE_COLORS.get(feature['properties'].get('name'), DEFAULT_COLOR),
-                'weight': 5 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 2,
-                'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 0.2
+                # ↓ ここを修正: .get() を使ってエラーを防ぐ
+                'color': ROUTE_COLORS.get(feature.get('properties', {}).get('name'), DEFAULT_COLOR),
+                'weight': 5 if (selected_route == "すべて表示" or selected_route == feature.get('properties', {}).get('name')) else 2,
+                'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature.get('properties', {}).get('name')) else 0.2
             },
+            # Tooltipもエラー回避のため、nameがない場合は "-" を表示させる設定等はできないが、
+            # データ不備でも落ちないようにシンプルな設定にする
             tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
         ).add_to(m)
 
