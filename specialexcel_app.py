@@ -143,21 +143,41 @@ else:
 
 m = folium.Map(location=[center_lat, center_lng], zoom_start=13, tiles="CartoDB positron")
 
-# 路線図 (GeoJSON)
-try:
-    with open("data/routes.geojson", "r", encoding="utf-8") as f:
-        geojson_data = json.load(f)
-    folium.GeoJson(
-        geojson_data,
-        style_function=lambda feature: {
-            'color': ROUTE_COLORS.get(feature['properties'].get('name'), DEFAULT_COLOR),
-            'weight': 5 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 2,
-            'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 0.2
-        },
-        tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
-    ).add_to(m)
-except Exception:
-    pass
+# ---------------------------------------------------------
+# ■ レイヤー1: 路線図（GeoJSON）診断モード
+# ---------------------------------------------------------
+geojson_path = "data/routes.geojson"
+
+# 1. ファイルが存在するかチェック
+if not os.path.exists(geojson_path):
+    st.error(f"⚠️ ファイルが見つかりません: {geojson_path}")
+    st.info("dataフォルダの中に routes.geojson という名前で保存されていますか？")
+else:
+    try:
+        # 2. JSONとして正しく読み込めるかチェック
+        with open(geojson_path, "r", encoding="utf-8") as f:
+            geojson_data = json.load(f)
+        
+        # 3. データの個数チェック
+        feature_count = len(geojson_data.get("features", []))
+        st.success(f"✅ 路線データ読み込み成功: {feature_count} 本の路線が見つかりました")
+
+        # 地図に描画
+        folium.GeoJson(
+            geojson_data,
+            style_function=lambda feature: {
+                'color': ROUTE_COLORS.get(feature['properties'].get('name'), DEFAULT_COLOR),
+                'weight': 5 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 2,
+                'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 0.2
+            },
+            tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
+        ).add_to(m)
+
+    except json.JSONDecodeError as e:
+        st.error(f"❌ JSONファイルの記述ミスがあります: {e}")
+        st.warning("カンマ(,)の忘れや、カッコの閉じ忘れがないか確認してください。")
+    except Exception as e:
+        st.error(f"❌ 予期せぬエラー: {e}")
 
 # バス停ピン
 for _, row in stops_df.iterrows():
