@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
+from folium.plugins import Fullscreen  # 🆕 追加: 全画面表示用プラグイン
 from streamlit_folium import st_folium
 import json
 import os
@@ -300,6 +301,14 @@ m = folium.Map(
     scrollWheelZoom=False
 )
 
+# 🆕 全画面表示ボタンを追加
+Fullscreen(
+    position="topright",
+    title="全画面表示",
+    title_cancel="元のサイズに戻す",
+    force_separate_button=True
+).add_to(m)
+
 # 📍 路線図
 geojson_path = "data/routes.geojson"
 if os.path.exists(geojson_path):
@@ -365,7 +374,6 @@ for _, row in stops_df.iterrows():
     # リスト文字列化
     s_names_list = students_at_stop_map["name"].tolist()
     if s_names_list:
-        # 名前が多い場合は適度に見やすくするため、改行ではなくカンマ区切りにする
         s_names_str = "、".join(s_names_list)
     else:
         s_names_str = "(なし)"
@@ -403,7 +411,7 @@ for _, row in stops_df.iterrows():
             tooltip=f"{target_student_info['name']} さん"
         ).add_to(m)
 
-# 【修正】高さ(height)を750->500に変更してスマホでのスクロール性を改善
+# 地図表示 (高さは500pxに固定)
 with st.expander("🗺️ 運行マップ (クリックで開閉)", expanded=True):
     st_folium(m, use_container_width=True, height=500)
 
