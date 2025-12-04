@@ -143,45 +143,51 @@ else:
 
 m = folium.Map(location=[center_lat, center_lng], zoom_start=13, tiles="CartoDB positron")
 
+    
 # ---------------------------------------------------------
-# ■ レイヤー1: 路線図（GeoJSON）診断モード
+# ■ レイヤー1: 路線図（GeoJSON）自動修復モード
 # ---------------------------------------------------------
 geojson_path = "data/routes.geojson"
 
-# 1. ファイルが存在するかチェック
-if not os.path.exists(geojson_path):
-    st.error(f"⚠️ ファイルが見つかりません: {geojson_path}")
-    st.info("dataフォルダの中に routes.geojson という名前で保存されていますか？")
-else:
+if os.path.exists(geojson_path):
     try:
-        # 2. JSONとして正しく読み込めるかチェック
         with open(geojson_path, "r", encoding="utf-8") as f:
             geojson_data = json.load(f)
         
-        # 3. データの個数チェック
-        feature_count = len(geojson_data.get("features", []))
-        st.success(f"✅ 路線データ読み込み成功: {feature_count} 本の路線が見つかりました")
+        # 【重要】データの自動修復処理
+        # properties や name が抜けているデータがあってもエラーにならないように埋める
+        if "features" in geojson_data:
+            for feature in geojson_data["features"]:
+                # properties がなければ空っぽの箱を作る
+                if "properties" not in feature:
+                    feature["properties"] = {}
+                
+                # name がなければ "不明" と入れておく（これでKeyErrorを防ぐ）
+                if "name" not in feature["properties"]:
+                    feature["properties"]["name"] = "不明"
 
-        # 地図に描画
         # 地図に描画
         folium.GeoJson(
             geojson_data,
             style_function=lambda feature: {
-                # ↓ ここを修正: .get() を使ってエラーを防ぐ
-                'color': ROUTE_COLORS.get(feature.get('properties', {}).get('name'), DEFAULT_COLOR),
-                'weight': 5 if (selected_route == "すべて表示" or selected_route == feature.get('properties', {}).get('name')) else 2,
-                'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature.get('properties', {}).get('name')) else 0.2
+                'color': ROUTE_COLORS.get(feature['properties']['name'], DEFAULT_COLOR),
+                'weight': 5 if (selected_route == "すべて表示" or selected_route == feature['properties']['name']) else 2,
+                'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature['properties']['name']) else 0.2
             },
-            # Tooltipもエラー回避のため、nameがない場合は "-" を表示させる設定等はできないが、
-            # データ不備でも落ちないようにシンプルな設定にする
+            # これで name が必ず存在することになったので、エラーは起きない
             tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
         ).add_to(m)
 
-    except json.JSONDecodeError as e:
-        st.error(f"❌ JSONファイルの記述ミスがあります: {e}")
-        st.warning("カンマ(,)の忘れや、カッコの閉じ忘れがないか確認してください。")
+        st.success(f"✅ 路線データ読み込み完了 ({len(geojson_data.get('features', []))}本)")
+
     except Exception as e:
-        st.error(f"❌ 予期せぬエラー: {e}")
+        # それでもダメなら、路線図なしで起動する（アプリを止めない）
+        st.error(f"GeoJSON読み込みエラー（スキップします）: {e}")
+else:
+    # ファイルがない場合もスルー
+    pass
+
+  
 
 # バス停ピン
 for _, row in stops_df.iterrows():
