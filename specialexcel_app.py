@@ -16,20 +16,17 @@ PASSWORD = st.secrets.get("app_password", "school1234")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # 🎨 デザイン・配色設定
-# 12便まで対応 (GeoJSONのnameプロパティとCSVのroute列と一致させること)
+# 【修正】古い名前(Aコース)と新しい名前(1便)の両方に対応させました
 ROUTE_COLORS = {
-    "1便": "#E69F00",  # オレンジ
-    "2便": "#56B4E9",  # スカイブルー
-    "3便": "#009E73",  # 青緑
-    "4便": "#F0E442",  # 黄色
-    "5便": "#0072B2",  # 青
-    "6便": "#D55E00",  # 朱色
-    "7便": "#CC79A7",  # 赤紫
-    "8便": "#999999",  # グレー
-    "9便": "#882255",  # ワインレッド
-    "10便": "#AA4499", # 紫
-    "11便": "#332288", # 紺
-    "12便": "#DDCC77"  # 薄茶
+    # 新しい名前
+    "1便": "#E69F00", "2便": "#56B4E9", "3便": "#009E73", "4便": "#F0E442",
+    "5便": "#0072B2", "6便": "#D55E00", "7便": "#CC79A7", "8便": "#999999",
+    "9便": "#882255", "10便": "#AA4499", "11便": "#332288", "12便": "#DDCC77",
+    
+    # 古い名前 (GeoJSONが書き換わっていなくても色がつくようにする保険)
+    "Aコース": "#E69F00", "Bコース": "#56B4E9", "Cコース": "#009E73", "Dコース": "#F0E442",
+    "Eコース": "#0072B2", "Fコース": "#D55E00", "Gコース": "#CC79A7", "Hコース": "#999999",
+    "Iコース": "#882255", "Jコース": "#AA4499", "Kコース": "#332288", "Lコース": "#DDCC77"
 }
 DEFAULT_COLOR = "#333333" # 定義外の路線は黒
 
@@ -164,8 +161,9 @@ if search_query:
     else:
         st.sidebar.warning("該当する生徒が見つかりません")
 
-# 3. 路線選択 (検索ヒット時は自動でその路線を選択状態にする)
+# 3. 路線選択
 st.sidebar.markdown("---")
+# ユニークな路線名を取得してソート
 route_options = ["すべて表示"] + sorted(stops_df["route"].unique().tolist())
 
 # デフォルトの選択肢を決める
@@ -217,7 +215,7 @@ else:
 m = folium.Map(location=[center_lat, center_lng], zoom_start=zoom_start, tiles="CartoDB positron")
 
 # ---------------------------------------------------------
-# 📍 レイヤー1: 路線図 (GeoJSON) - 12便対応・色分け
+# 📍 レイヤー1: 路線図 (GeoJSON) - 色分け強化版
 # ---------------------------------------------------------
 geojson_path = "data/routes.geojson"
 if os.path.exists(geojson_path):
@@ -225,32 +223,30 @@ if os.path.exists(geojson_path):
         with open(geojson_path, "r", encoding="utf-8") as f:
             geojson_data = json.load(f)
         
-        # GeoJSONの不備を自動補正 (ここが色分け復活の鍵)
+        # GeoJSON自動補正
         if "features" in geojson_data:
             for feature in geojson_data["features"]:
-                if "properties" not in feature:
-                    feature["properties"] = {}
-                
-                # nameがない、または空の場合の安全策
-                if "name" not in feature["properties"]:
-                    feature["properties"]["name"] = "不明"
+                if "properties" not in feature: feature["properties"] = {}
+                if "name" not in feature["properties"]: feature["properties"]["name"] = "不明"
 
         # スタイル関数
         def style_function(feature):
-            # プロパティから路線名を取得（エラー回避のため安全に取得）
+            # プロパティから名前を取得（なければ不明）
             props = feature.get('properties', {})
             r_name = props.get('name', '不明')
             
-            # 検索ヒットまたは選択中の路線以外は薄くする
+            # ★選択中かどうかの判定 (Aコース==1便 のようなマッピングは大変なので、部分一致等はせずそのまま判定)
+            # もしファイル内の名前(r_name)と、選ばれた名前(selected_route)が異なると薄くなる可能性があるが、
+            # "すべて表示"なら必ず色はつく
             is_active = (selected_route == "すべて表示") or (selected_route == r_name)
             
-            # 色の決定（辞書にない場合はデフォルト色）
+            # ★色の決定（辞書にあるキーなら何でもOK）
             line_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR)
             
             return {
                 'color': line_color,
-                'weight': 6 if is_active else 2,
-                'opacity': 0.9 if is_active else 0.2
+                'weight': 6 if is_active else 3,
+                'opacity': 0.9 if is_active else 0.4
             }
 
         folium.GeoJson(
@@ -262,7 +258,7 @@ if os.path.exists(geojson_path):
         st.error(f"路線データ読み込みエラー: {e}")
 
 # ---------------------------------------------------------
-# 📍 レイヤー2: バス停ピン - 12便対応・検索強調
+# 📍 レイヤー2: バス停ピン
 # ---------------------------------------------------------
 for _, row in stops_df.iterrows():
     r_name = row["route"]
@@ -282,28 +278,26 @@ for _, row in stops_df.iterrows():
 
     # デザイン決定
     if is_search_target:
-        # 検索ヒット：赤色で大きく、枠線を太く
         icon_color = "#FF0000" # 赤
         radius = 12
         line_weight = 3
         fill_opacity = 1.0
-        z_index_offset = 1000 # 最前面へ
+        z_index_offset = 1000
     elif is_route_selected:
-        # 選択路線：路線の色
+        # ここも ROUTE_COLORS を使うことで Aコースでも1便でも色がつく
         icon_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR)
         radius = 7
         line_weight = 1
         fill_opacity = 0.9
         z_index_offset = 0
     else:
-        # 非選択：グレーで小さく
         icon_color = "#CCCCCC"
         radius = 3
         line_weight = 0
         fill_opacity = 0.4
         z_index_offset = -1
 
-    # ポップアップ内容
+    # ポップアップ
     popup_html = f"""
     <div style="font-family:sans-serif; width:180px;">
         <h4 style="margin:0; color:{ROUTE_COLORS.get(r_name, 'black')};">{s_name}</h4>
@@ -318,7 +312,7 @@ for _, row in stops_df.iterrows():
     folium.CircleMarker(
         location=[row["lat"], row["lng"]],
         radius=radius,
-        color="white" if is_search_target else icon_color, # 枠線
+        color="white" if is_search_target else icon_color,
         weight=line_weight,
         fill=True,
         fill_color=icon_color,
@@ -327,7 +321,6 @@ for _, row in stops_df.iterrows():
         z_index_offset=z_index_offset
     ).add_to(m)
 
-    # 検索ヒット時は追加で目立つアイコンを置く
     if is_search_target:
         folium.Marker(
             location=[row["lat"], row["lng"]],
@@ -335,27 +328,25 @@ for _, row in stops_df.iterrows():
             tooltip=f"{found_student['name']} さんの利用バス停"
         ).add_to(m)
 
-# 地図描画 (PC用に見やすく縦長固定)
 st_folium(m, use_container_width=True, height=750)
 
 # ---------------------------------------------------------
-# 📋 詳細リスト表示 (全路線対応版)
+# 📋 詳細リスト表示 (省略なし)
 # ---------------------------------------------------------
 st.markdown("---")
 
-# 表示する路線を決定（すべて表示なら全路線、そうでなければ選択路線のみ）
+# すべて表示の場合は全路線をループ、それ以外は1路線のみ
 if selected_route == "すべて表示":
+    # データの路線順、または定義順にソートしたい場合はここで調整
     target_routes = sorted(stops_df["route"].unique().tolist())
     st.subheader(f"📄 全路線の運行予定 ({mode})")
 else:
     target_routes = [selected_route]
     st.subheader(f"📄 {selected_route} 詳細スケジュール")
 
-# 全データの結合処理
 all_rows = []
 
 for r_name in target_routes:
-    # その路線のバス停を抽出
     route_stops = stops_df[stops_df["route"] == r_name].copy()
     if "sequence" in route_stops.columns:
         route_stops = route_stops.sort_values("sequence")
@@ -373,13 +364,12 @@ for r_name in target_routes:
             (students_df["direction"] == target_direction)
         ]["name"].tolist()
         
-        # ★検索ハイライト処理★
+        # 検索ハイライト
+        display_stop_name = s_name
         if found_student is not None and found_student["name"] in students_here:
-            display_stop_name = f"🔴 {s_name} (検索ヒット)"
-            # リスト内でもその生徒名を強調
+            display_stop_name = f"🔴 {s_name}"
+            # リスト内でも強調
             students_here = [f"**{s}**" if s == found_student["name"] else s for s in students_here]
-        else:
-            display_stop_name = s_name
 
         all_rows.append({
             "路線名": r_name,
@@ -388,13 +378,9 @@ for r_name in target_routes:
             f"{target_direction}生徒 ({len(students_here)}名)": "、".join(students_here)
         })
 
-# データフレーム作成と表示
 df_display = pd.DataFrame(all_rows)
 
 if not df_display.empty:
-    # 路線名でソートして見やすくする
-    # df_display = df_display.sort_values(["路線名", "予定時刻"]) # 必要に応じてソート
-    
     st.dataframe(
         df_display, 
         hide_index=True, 
@@ -406,4 +392,4 @@ if not df_display.empty:
         }
     )
 else:
-    st.info("データがありません")
+    st.info("表示するデータがありません。")
