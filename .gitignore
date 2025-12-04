@@ -1,10 +1,7 @@
-# 機寁E  報のJSONファイルを除夁E*.json
-propane-atrium-449411-e6-e1bccb92a993.json
 
-propane-atrium-449411-e6-e1bccb92a993.json
 
-config/
+.streamlit/
 venv/
 c o n f i g / * . j s o n 
  
-config/secrets.toml
+.streamlit/secrets.toml

@@ -1,50 +1,46 @@
 import streamlit as st
-import io
-import requests
-import sys
-import os 
+import pandas as pd
+import folium
+from streamlit_folium import st_folium
 import json
+import os
 
+# Google API 関連のインポート
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.cloud import storage
 from googleapiclient.http import MediaIoBaseDownload
 
-# 🔹 環境変数から Google 認証情報を取得
-#google_credentials = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+# ---------------------------------------------------------
+# 🎨 設定 & UIデザイン
+# ---------------------------------------------------------
+st.set_page_config(layout="wide", page_title="スクールバス運行マップ (Google Sheets版)")
 
-# 🔹 Google 認証情報を表示 (デバッグ用)
-#st.write("Google Service Account:", google_credentials["client_email"])
+# 配色パレット
+ROUTE_COLORS = {
+    "Aコース": "#E69F00", "Bコース": "#56B4E9", "Cコース": "#009E73",
+    "Dコース": "#F0E442", "Eコース": "#0072B2", "Fコース": "#D55E00",
+    "Gコース": "#CC79A7", "Hコース": "#999999"
+}
+DEFAULT_COLOR = "#333333"
 
-# 環境変数から Google 認証情報を取得
-#google_credentials_str = os.getenv("GOOGLE_CREDENTIALS")
-
-#if google_credentials_str:
-#    google_credentials = json.loads(google_credentials_str)
-#else:
- #   st.error("GOOGLE_CREDENTIALS が設定されていません。環境変数を確認してください。")
-  #  st.stop()
-# 認証情報を取得
-#if google_credentials:
- #   credentials = Credentials.from_service_account_info(
- #       google_credentials,
-  #      scopes=[
-   #         "https://www.googleapis.com/auth/spreadsheets",
-    #        "https://www.googleapis.com/auth/drive"
-     #   ]
-    #)
-#else:
- #   st.stop()  # 認証情報がない場合、アプリを停止
+# ---------------------------------------------------------
+# 🔑 Google API 認証 & 設定 (ご提示コードの統合)
+# ---------------------------------------------------------
 
 # Secrets から認証情報を取得
-credentials = Credentials.from_service_account_info(
-    st.secrets["google_credentials"],
-    scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-]
-)
-
+# .streamlit/secrets.toml に記述が必要です
+try:
+    credentials = Credentials.from_service_account_info(
+        st.secrets["google_credentials"],
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+    )
+except Exception as e:
+    st.error("Google認証情報の読み込みに失敗しました。.streamlit/secrets.toml を確認してください。")
+    st.stop()
 
 # Google Sheets API クライアントを作成
 service = build('sheets', 'v4', credentials=credentials)
@@ -56,8 +52,9 @@ drive_service = build('drive', 'v3', credentials=credentials)
 client = storage.Client(credentials=credentials)
 
 # **スプレッドシートのIDをグローバル変数として定義**
-spreadsheet_id = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
+spreadsheet_id = "1s8Y-uQ2GcKxF7Vv5qMWGB9hDE8Zy4fJMbEoGduuXoYE"
 
+# 書き込み用関数（ご提示分）
 def write_to_sheets(sheet_name, cell, value):
     service.spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
@@ -66,257 +63,176 @@ def write_to_sheets(sheet_name, cell, value):
         body={"values": [[value]]}
     ).execute()
 
-def main():
-    st.title("📉発達段階能力チャート作成📈")
-    st.info("児童・生徒の発達段階が分からない場合は下の「現在の発達段階を表から確認する」⇒「発達段階表」を順に押して下さい。")
-
-
-
-
-
-    if st.button("現在の発達段階を表から確認する"):
-     try:
-        # 指定したシートのID（例: "0" は通常、最初のシート）
-        sheet_gid = "643912489"  # 必要に応じて変更
+# ---------------------------------------------------------
+# 📥 データ読み込み関数 (Google Sheetsから取得)
+# ---------------------------------------------------------
+@st.cache_data(ttl=600) # 10分間キャッシュしてAPI制限を防ぐ
+def load_data_from_sheets():
+    """Google Sheetsからデータを読み込みDataFrame化する"""
+    try:
+        # 1. バス停データの取得 (シート名: bus_stops を想定)
+        sheet_stops = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id, range="bus_stops!A:E").execute()
+        rows_stops = sheet_stops.get('values', [])
         
-        # スプレッドシートのURLを生成してブラウザで開けるようにする
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
-        st.markdown(f"[発達段階表]({spreadsheet_url})", unsafe_allow_html=True)
-        
-     except Exception as e:
-        st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
+        if len(rows_stops) > 1:
+            stops_df = pd.DataFrame(rows_stops[1:], columns=rows_stops[0])
+            # 緯度経度を数値に変換
+            stops_df["lat"] = pd.to_numeric(stops_df["lat"], errors='coerce')
+            stops_df["lng"] = pd.to_numeric(stops_df["lng"], errors='coerce')
+        else:
+            stops_df = pd.DataFrame()
 
+        # 2. 生徒データの取得 (シート名: students を想定)
+        sheet_students = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id, range="students!A:D").execute()
+        rows_students = sheet_students.get('values', [])
 
-    sheet_name = "シート1"
+        if len(rows_students) > 1:
+            students_df = pd.DataFrame(rows_students[1:], columns=rows_students[0])
+        else:
+            students_df = pd.DataFrame()
 
-    categories = ["認知力・操作", "認知力・注意力", "集団参加", "生活動作", "言語理解", "表出言語", "記憶", "読字", "書字", "粗大運動", "微細運動","数の概念"]
-    options = ["0〜3ヶ月", "3〜6ヶ月", "6〜9ヶ月", "9〜12ヶ月", "12～18ヶ月", "18～24ヶ月", "2～3歳", "3～4歳", "4～5歳", "5～6歳", "6～7歳", "7歳以上"]
-    #変更
-    selected_options = {}
+        return stops_df, students_df
 
-    for index, category in enumerate(categories, start=1):
-        st.subheader(category)
-        selected_options[category] = st.radio(f"{category}の選択肢を選んでください:", options, key=f"radio_{index}")
+    except Exception as e:
+        st.error(f"スプレッドシートの読み込みエラー: {e}")
+        return pd.DataFrame(), pd.DataFrame()
 
-    st.markdown("""1.各項目の選択が終わりましたら、まず「スプレッドシートに書き込む」を押してください。  
-                2.続いて「スプレッドシートを開く」を押して内容を確認してくだい。  
-                3.Excelでデータを保存したい方は「EXCELを保存」を押してくだい。""")
+# データのロード実行
+stops_df, students_df = load_data_from_sheets()
 
-    if st.button("スプレッドシートに書き込む"):
-     try:
-          # 各カテゴリと選択肢をスプレッドシートに書き込む
-          for index, (category, selected_option) in enumerate(selected_options.items(), start=1):
-              write_to_sheets(sheet_name, f"A{index + 2}", category)
-              write_to_sheets(sheet_name, f"C{index + 2}", selected_option)  # C列に発達年齢を記入
-      
-          # 年齢カテゴリのマッピング
-          age_categories = {
-              "0〜3ヶ月": 1, "3〜6ヶ月": 2, "6〜9ヶ月": 3, "9〜12ヶ月": 4,
-              "12～18ヶ月": 5, "18～24ヶ月": 6, "2～3歳": 7, "3～4歳": 8,
-              "4～5歳": 9, "5～6歳": 10, "6～7歳": 11, "7歳以上": 12
-          }
-      
-          # シート1のデータを取得
-          sheet1_data = service.spreadsheets().values().get(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!A3:C14"
-          ).execute().get('values', [])
-      
-          # A列（カテゴリ名）とC列（発達年齢）を取得
-          category_names = [row[0].strip() for row in sheet1_data]
-          age_range = [row[2].strip() for row in sheet1_data]  # C列に発達年齢がある
-      
-          # 年齢を数値化
-          converted_values = [[age_categories.get(age, "")] for age in age_range]
-      
-          # B3:B14に数値（段階）を設定
-          service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!B3:B14",
-              valueInputOption="RAW",
-              body={"values": converted_values}
-          ).execute()
-      
-          # A3:C13をA18:C28にコピー
-          sheet1_copy_data = service.spreadsheets().values().get(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!A3:C14"
-          ).execute().get('values', [])
-          
-          # シートの範囲を一度に更新
-          service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!A19:C30",
-              valueInputOption="RAW",
-              body={"values": sheet1_copy_data}
-          ).execute()
-      
-          # B19:B30の段階を+1（最大値12を超えない）
-          updated_b_values = [[min(12, int(row[1]) + 1) if row[1].isdigit() else ""] for row in sheet1_copy_data]
-          service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!B19:B30",
-              valueInputOption="RAW",
-              body={"values": updated_b_values}
-          ).execute()
-      
-          # **🟢 B19:B30の段階データを取得**
-          b19_b30_values = service.spreadsheets().values().get(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!B19:B30"
-          ).execute().get('values', [])
-      
-          # **🔵 B列の値（段階）を整数に変換**
-          b19_b30_values = [int(row[0]) if row and row[0].isdigit() else None for row in b19_b30_values]
-      
-          # **🔵 段階に対応する発達年齢を取得**
-          b_to_c_mapping = {  # B列の段階をC列の発達年齢に変換
-              1: "0〜3ヶ月", 2: "3〜6ヶ月", 3: "6〜9ヶ月", 4: "9〜12ヶ月",
-              5: "12～18ヶ月", 6: "18～24ヶ月", 7: "2～3歳", 8: "3～4歳",
-              9: "4～5歳", 10: "5～6歳", 11: "6～7歳", 12: "7歳以上"
-          }
-      
-          # **C19:C30に対応する発達年齢をセット**
-          updated_c_values = [[b_to_c_mapping.get(b, "該当なし")] for b in b19_b30_values]
-      
-          # **Google SheetsにC19:C30のデータを更新**
-          service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!C19:C30",
-              valueInputOption="RAW",
-              body={"values": updated_c_values}
-          ).execute()
-      
-          # **🟢 シート2のデータを取得**
-          sheet2_data = service.spreadsheets().values().get(
-              spreadsheetId=spreadsheet_id,
-              range="シート2!A1:V"
-          ).execute().get('values', [])
-      
-          # **データマッピングを作成**
-          headers = [h.strip() for h in sheet2_data[0]]
-          data_map = {}  # 🔵 ここで `data_map` を適切に定義
-          for row in sheet2_data[1:]:
-              age_step = row[21] if len(row) > 21 else ""
-              if not age_step.isdigit():
-                  continue
-              for j, key in enumerate(headers):
-                  if key not in data_map:
-                      data_map[key] = {}
-                  data_map[key][int(age_step)] = row[j]
-      
-          # **D3:D14にシート2の対応データを設定**
-          results = [[data_map.get(category, {}).get(age[0], "該当なし")]
-                     for category, age in zip(category_names, converted_values)]
-          service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!D3:D14",
-              valueInputOption="RAW",
-              body={"values": results}
-          ).execute()
-          
+if stops_df.empty or students_df.empty:
+    st.warning("データが空です。スプレッドシートの「bus_stops」と「students」シートを確認してください。")
+    st.stop()
 
-          # 🟢 **B19:B30の値を取得**
-          b19_b30_values = service.spreadsheets().values().get(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!B19:B30"
-          ).execute().get('values', [])
-          
-          # 🟢 **A19:A30のカテゴリを取得**
-          a19_a30_values = service.spreadsheets().values().get(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!A19:A30"
-          ).execute().get('values', [])
-
-
-      
-                    # 🔵 **カテゴリと対応する段階（B19:B30）を使ってD19:D30の値を決定**
-          new_results = []
-          for category_row, stage_row in zip(a19_a30_values, b19_b30_values):
-              category = category_row[0] if category_row else ""  # A列のカテゴリ
-              stage = int(stage_row[0]) if stage_row and stage_row[0].isdigit() else None  # B列の段階
-          
-              if stage is not None:
-                  result_value = data_map.get(category, {}).get(stage, "該当なし")  # シート2のデータを参照
-              else:
-                  result_value = "該当なし"
-          
-              new_results.append([result_value])
-          
-          # **D19:D30に対応する値を更新**
-          service.spreadsheets().values().update(
-              spreadsheetId=spreadsheet_id,
-              range="シート1!D19:D30",
-              valueInputOption="RAW",
-              body={"values": new_results}
-          ).execute()
-      
-     except Exception as e:
-          st.error(f"エラーが発生しました: {e}")
-
-  # ダウンロード機能
-    if st.button("スプレッドシートを開く"):
-     try:
-        # 指定したシートのID（例: "0" は通常、最初のシート）
-        sheet_gid = "0"  # 必要に応じて変更
-        
-        # スプレッドシートのURLを生成してブラウザで開けるようにする
-        spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit#gid={sheet_gid}"
-        st.markdown(f"[スプレッドシートを開く]({spreadsheet_url})", unsafe_allow_html=True)
-
-        st.info("スプレッドシートを開いた後に、Excelとして保存できます。")
-     except Exception as e:
-        st.error(f"スプレッドシートのリンク生成中にエラーが発生しました: {e}")
-
+# ---------------------------------------------------------
+# 🧠 ロジック処理
+# ---------------------------------------------------------
+def get_students_at_stop(route, stop_name):
+    filtered = students_df[
+        (students_df["route"] == route) & 
+        (students_df["stop_name"] == stop_name)
+    ]
+    if filtered.empty: return None
     
-# Excelダウンロード機能
-    if st.button("EXCELを保存"):
-     try:
-        # Google Drive API を使用してスプレッドシートをエクスポート
-        request = drive_service.files().export_media(
-            fileId=spreadsheet_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        file_data = io.BytesIO()
-        downloader = MediaIoBaseDownload(file_data, request)
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
+    to_school = filtered[filtered["direction"] == "登校"]["name"].tolist()
+    from_school = filtered[filtered["direction"] == "下校"]["name"].tolist()
+    return {"to": to_school, "from": from_school}
 
-        file_data.seek(0)
-        st.download_button(
-            label="PCに結果を保存",
-            data=file_data,
-            file_name="spreadsheet.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        st.info("保存EXCELのレーダーチャートは仕様が少し異なります。")
-     except Exception as e:
-        st.error(f"Excel保存中にエラーが発生しました: {e}")
+# ---------------------------------------------------------
+# 📱 サイドバー & 検索機能
+# ---------------------------------------------------------
+st.sidebar.header("🚌 運行マップ検索")
 
+# 路線選択
+route_list = sorted(stops_df["route"].unique()) if not stops_df.empty else []
+selected_route = st.sidebar.selectbox("📍 路線を強調表示", ["すべて表示"] + route_list)
+
+# 生徒検索
+search_query = st.sidebar.text_input("🔍 生徒名で検索", placeholder="例: 佐藤")
+found_student = None
+
+if search_query:
+    search_results = students_df[students_df["name"].str.contains(search_query, na=False)]
+    if not search_results.empty:
+        found_student = search_results.iloc[0]
+        st.sidebar.success(f"発見: {found_student['name']} さん ({found_student['route']} - {found_student['stop_name']})")
+        selected_route = found_student['route']
+    else:
+        st.sidebar.warning("該当する生徒が見つかりません")
+
+# ---------------------------------------------------------
+# 🗺️ 地図生成
+# ---------------------------------------------------------
+center_lat = stops_df["lat"].mean()
+center_lng = stops_df["lng"].mean()
+
+m = folium.Map(location=[center_lat, center_lng], zoom_start=13, tiles="CartoDB positron")
+
+# ■ レイヤー1: 路線図（GeoJSONファイルから読み込み）
+# ※ Google Sheetsには座標点しか入れないので、綺麗な線はローカルファイルを使用
+try:
+    with open("data/routes.geojson", "r", encoding="utf-8") as f:
+        geojson_data = json.load(f)
+
+    folium.GeoJson(
+        geojson_data,
+        style_function=lambda feature: {
+            'color': ROUTE_COLORS.get(feature['properties'].get('name'), DEFAULT_COLOR),
+            'weight': 5 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 2,
+            'opacity': 0.8 if (selected_route == "すべて表示" or selected_route == feature['properties'].get('name')) else 0.2
+        },
+        tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
+    ).add_to(m)
+except FileNotFoundError:
+    st.error("data/routes.geojson が見つかりません。")
+
+# ■ レイヤー2: バス停ピン（Google Sheetsデータ）
+for _, row in stops_df.iterrows():
+    r_name = row["route"]
+    s_name = row["stop_name"]
     
-    st.subheader("今までの発達チャートから成長グラフを作成する")
-    st.markdown("[発達段階の成長傾向分析](https://bunnsekiexcel-edeeuzkkntxmhdptk54v2t.streamlit.app/)")
-             # **区切り線**
-                # **別のWebアプリへのリンク**
-    st.markdown("---")  # 区切り線   
-    st.markdown("🌎関連Webアプリに移動する")
-    st.markdown("[自立活動指導支援内容](https://aspecialeducationapp-6iuvpdfjbflp4wyvykmzey.streamlit.app/)")
-    st.markdown("[特別支援教育で使える療法・分析法一覧](https://bunnsekiapppy-6zctfql94fk2x3ghmu5pmx.streamlit.app/)")
-    st.markdown("---")  # 区切り線  
-    st.markdown("📁教育・心理分析ツール") 
-    st.markdown("[応用行動分析](https://abaapppy-k7um2qki5kggexf8qkfxjc.streamlit.app/)")
-    st.markdown("[機能的行動評価分析](https://kinoukoudou-ptfpnkq3uqgaorabcyzgf2.streamlit.app/)") 
-    st.markdown("---")  # 区切り線
-    st.markdown("📁統計学分析ツール") 
-    st.markdown("[相関分析ツール](https://soukan-jlhkdhkradbnxssy29aqte.streamlit.app/)")
-    st.markdown("[多変量回帰分析](https://kaikiapp-tjtcczfvlg2pyhd9bjxwom.streamlit.app/)")
-    st.markdown("[t検定](https://tkentei-flhmnqnq6dti6oyy9xnktr.streamlit.app/)")
-    st.markdown("[ロジスティック回帰分析ツール](https://rojisthik-buklkg5zeh6oj2gno746ix.streamlit.app/)")
-    st.markdown("[ノンパラメトリック統計分析ツール](https://nonparametoric-nkk2awu6yv9xutzrjmrsxv.streamlit.app/)")
-    st.markdown("---")  # 区切り線
-    st.write("""※ それぞれのアプリに記載してある内容、分析ツールのデータや図、表を外部に出す物（研究など）に使用する場合は小山までご相談ください。無断での転記・利用を禁じます。""")
+    is_selected_route = (selected_route == "すべて表示") or (selected_route == r_name)
+    is_search_target = False
+    
+    if found_student is not None:
+        if found_student["route"] == r_name and found_student["stop_name"] == s_name:
+            is_search_target = True
 
-if __name__ == "__main__":
-    main()
- 
+    # スタイル設定
+    if is_search_target:
+        icon_color = "red"
+        radius = 10
+        fill_opacity = 1.0
+    elif is_selected_route:
+        icon_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR)
+        radius = 6
+        fill_opacity = 0.9
+    else:
+        icon_color = "#999999"
+        radius = 3
+        fill_opacity = 0.5
+
+    # Popup作成
+    students_info = get_students_at_stop(r_name, s_name)
+    popup_html = f"<b>{s_name}</b> ({r_name})"
+    
+    if students_info:
+        to_str = ", ".join(students_info['to']) if students_info['to'] else "-"
+        from_str = ", ".join(students_info['from']) if students_info['from'] else "-"
+        popup_html += f"""
+        <div style="width:200px; max-height:200px; overflow-y:auto;">
+            <hr style="margin:5px 0;">
+            <strong style="color:blue;">🚌 登校 ({len(students_info['to'])})</strong>: {to_str}<br>
+            <hr style="margin:5px 0;">
+            <strong style="color:green;">🏠 下校 ({len(students_info['from'])})</strong>: {from_str}
+        </div>
+        """
+    else:
+        popup_html += "<br><span style='font-size:12px;color:gray;'>利用生徒なし</span>"
+
+    folium.CircleMarker(
+        location=[row["lat"], row["lng"]],
+        radius=radius,
+        color="white" if not is_search_target else "red",
+        weight=2,
+        fill=True,
+        fill_color=icon_color,
+        fill_opacity=fill_opacity,
+        popup=folium.Popup(popup_html, max_width=250)
+    ).add_to(m)
+    
+    if is_search_target:
+        folium.Marker(
+            location=[row["lat"], row["lng"]],
+            icon=folium.Icon(color="red", icon="user", prefix="fa"),
+            tooltip="検索ヒット"
+        ).add_to(m)
+
+st.title("🚌 スクールバス運行マップ (Live Data)")
+st_folium(m, width="100%", height=500, responsive=True)
+
+with st.expander("データの更新について"):
+    st.write(f"データは Google Sheets (ID: {spreadsheet_id}) から読み込んでいます。")
+    st.write("シート名: `bus_stops` (バス停), `students` (生徒)")
