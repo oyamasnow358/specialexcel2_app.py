@@ -5,16 +5,14 @@ from streamlit_folium import st_folium
 import json
 import os
 
-# Google API 関連のインポート
+# Google API 関連 (エラーが出ても止まらないように try-except で囲む準備)
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
-from google.cloud import storage
-from googleapiclient.http import MediaIoBaseDownload
 
 # ---------------------------------------------------------
 # 🎨 設定 & UIデザイン
 # ---------------------------------------------------------
-st.set_page_config(layout="wide", page_title="スクールバス運行マップ (Google Sheets版)")
+st.set_page_config(layout="wide", page_title="スクールバス運行マップ")
 
 # 配色パレット
 ROUTE_COLORS = {
@@ -23,96 +21,86 @@ ROUTE_COLORS = {
     "Gコース": "#CC79A7", "Hコース": "#999999"
 }
 DEFAULT_COLOR = "#333333"
+SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # ---------------------------------------------------------
-# 🔑 Google API 認証 & 設定
+# 📥 データ読み込みロジック (API -> 失敗ならCSV)
 # ---------------------------------------------------------
 
-# Secrets から認証情報を取得
-try:
-    # 辞書としてコピーを取得
-    # st.secrets オブジェクトそのままだと書き換えできない場合があるため dict() に変換
+def load_local_csv():
+    """ローカルのCSVファイルを読み込む"""
+    try:
+        s_df = pd.read_csv("data/bus_stops.csv")
+        st_df = pd.read_csv("data/students.csv")
+        return s_df, st_df, True
+    except FileNotFoundError:
+        return pd.DataFrame(), pd.DataFrame(), False
+
+def load_from_google_sheets():
+    """Google Sheetsからデータを読み込む (失敗したら例外を投げる)"""
+    # Secretsがない、またはキーがおかしい場合はここでエラーになる
+    if "google_credentials" not in st.secrets:
+        raise ValueError("Secretsが見つかりません")
+
+    # 認証情報の作成 (改行コード対応)
     creds_dict = dict(st.secrets["google_credentials"])
-
-    # 【重要】private_key の改行コード修正
-    # TOMLファイルから読み込むと \n がエスケープされていることがあるため、正しい改行に戻す
     if "private_key" in creds_dict:
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
 
     credentials = Credentials.from_service_account_info(
         creds_dict,
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
     )
-except Exception as e:
-    st.error(f"Google認証情報の読み込みに失敗しました: {e}")
-    st.stop()
+    
+    service = build('sheets', 'v4', credentials=credentials)
 
-# Google Sheets API クライアントを作成
-service = build('sheets', 'v4', credentials=credentials)
+    # バス停データ取得
+    sheet_stops = service.spreadsheets().values().get(
+        spreadsheetId=SPREADSHEET_ID, range="bus_stops!A:E").execute()
+    rows_stops = sheet_stops.get('values', [])
+    stops_df = pd.DataFrame(rows_stops[1:], columns=rows_stops[0])
+    
+    # 型変換
+    stops_df["lat"] = pd.to_numeric(stops_df["lat"], errors='coerce')
+    stops_df["lng"] = pd.to_numeric(stops_df["lng"], errors='coerce')
 
-# Google Drive API クライアントを作成（ダウンロード時に使用）
-drive_service = build('drive', 'v3', credentials=credentials)
+    # 生徒データ取得
+    sheet_students = service.spreadsheets().values().get(
+        spreadsheetId=SPREADSHEET_ID, range="students!A:D").execute()
+    rows_students = sheet_students.get('values', [])
+    students_df = pd.DataFrame(rows_students[1:], columns=rows_students[0])
 
-# Google Cloud Storage クライアントを作成（必要なら使用）
-client = storage.Client(credentials=credentials)
+    return stops_df, students_df
 
-# **スプレッドシートのIDをグローバル変数として定義**
-spreadsheet_id = "1s8Y-uQ2GcKxF7Vv5qMWGB9hDE8Zy4fJMbEoGduuXoYE"
-
-# 書き込み用関数（ご提示分）
-def write_to_sheets(sheet_name, cell, value):
-    service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range=f"{sheet_name}!{cell}",
-        valueInputOption="RAW",
-        body={"values": [[value]]}
-    ).execute()
-
-# ---------------------------------------------------------
-# 📥 データ読み込み関数 (Google Sheetsから取得)
-# ---------------------------------------------------------
-@st.cache_data(ttl=600) # 10分間キャッシュしてAPI制限を防ぐ
-def load_data_from_sheets():
-    """Google Sheetsからデータを読み込みDataFrame化する"""
+@st.cache_data(ttl=600)
+def load_data():
+    """
+    メインの読み込み関数
+    1. Google Sheets にトライ
+    2. ダメなら CSV にフォールバック
+    """
+    data_source = "未定義"
+    
+    # 1. APIでの読み込みを試みる
     try:
-        # 1. バス停データの取得 (シート名: bus_stops を想定)
-        sheet_stops = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id, range="bus_stops!A:E").execute()
-        rows_stops = sheet_stops.get('values', [])
-        
-        if len(rows_stops) > 1:
-            stops_df = pd.DataFrame(rows_stops[1:], columns=rows_stops[0])
-            # 緯度経度を数値に変換
-            stops_df["lat"] = pd.to_numeric(stops_df["lat"], errors='coerce')
-            stops_df["lng"] = pd.to_numeric(stops_df["lng"], errors='coerce')
-        else:
-            stops_df = pd.DataFrame()
-
-        # 2. 生徒データの取得 (シート名: students を想定)
-        sheet_students = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id, range="students!A:D").execute()
-        rows_students = sheet_students.get('values', [])
-
-        if len(rows_students) > 1:
-            students_df = pd.DataFrame(rows_students[1:], columns=rows_students[0])
-        else:
-            students_df = pd.DataFrame()
-
-        return stops_df, students_df
-
+        stops_df, students_df = load_from_google_sheets()
+        if stops_df.empty: raise ValueError("Sheet Empty")
+        data_source = "Google Sheets (オンライン)"
+    
     except Exception as e:
-        st.error(f"スプレッドシートの読み込みエラー: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+        # 2. エラーが出たらログを出してCSVに切り替え
+        print(f"API Error: {e}") # サーバーログ用
+        stops_df, students_df, success = load_local_csv()
+        if success:
+            data_source = "CSVファイル (オフライン)"
+        else:
+            st.error("データの読み込みに失敗しました。API設定を確認するか、dataフォルダにCSVを配置してください。")
+            st.stop()
+            
+    return stops_df, students_df, data_source
 
 # データのロード実行
-stops_df, students_df = load_data_from_sheets()
-
-if stops_df.empty or students_df.empty:
-    st.warning("データが空です。スプレッドシートの「bus_stops」と「students」シートを確認してください。")
-    st.stop()
+stops_df, students_df, current_source = load_data()
 
 # ---------------------------------------------------------
 # 🧠 ロジック処理
@@ -132,6 +120,12 @@ def get_students_at_stop(route, stop_name):
 # 📱 サイドバー & 検索機能
 # ---------------------------------------------------------
 st.sidebar.header("🚌 運行マップ検索")
+
+# 接続モードの表示
+if "CSV" in current_source:
+    st.sidebar.warning(f"⚠️ {current_source}")
+else:
+    st.sidebar.success(f"🟢 {current_source}")
 
 # 路線選択
 route_list = sorted(stops_df["route"].unique()) if not stops_df.empty else []
@@ -153,13 +147,16 @@ if search_query:
 # ---------------------------------------------------------
 # 🗺️ 地図生成
 # ---------------------------------------------------------
-center_lat = stops_df["lat"].mean()
-center_lng = stops_df["lng"].mean()
+if not stops_df.empty:
+    center_lat = stops_df["lat"].mean()
+    center_lng = stops_df["lng"].mean()
+else:
+    center_lat, center_lng = 35.6895, 139.6917 # デフォルト東京
 
 m = folium.Map(location=[center_lat, center_lng], zoom_start=13, tiles="CartoDB positron")
 
 # ■ レイヤー1: 路線図（GeoJSONファイルから読み込み）
-# ※ Google Sheetsには座標点しか入れないので、綺麗な線はローカルファイルを使用
+# 線データがない場合でもエラーで止まらないようにする
 try:
     with open("data/routes.geojson", "r", encoding="utf-8") as f:
         geojson_data = json.load(f)
@@ -174,9 +171,10 @@ try:
         tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
     ).add_to(m)
 except FileNotFoundError:
-    st.error("data/routes.geojson が見つかりません。")
+    # GeoJSONがない場合は何もしない（ピンのみ表示）
+    pass
 
-# ■ レイヤー2: バス停ピン（Google Sheetsデータ）
+# ■ レイヤー2: バス停ピン
 for _, row in stops_df.iterrows():
     r_name = row["route"]
     s_name = row["stop_name"]
@@ -238,9 +236,5 @@ for _, row in stops_df.iterrows():
             tooltip="検索ヒット"
         ).add_to(m)
 
-st.title("🚌 スクールバス運行マップ (Live Data)")
+st.title("🚌 スクールバス運行マップ")
 st_folium(m, width="100%", height=500, responsive=True)
-
-with st.expander("データの更新について"):
-    st.write(f"データは Google Sheets (ID: {spreadsheet_id}) から読み込んでいます。")
-    st.write("シート名: `bus_stops` (バス停), `students` (生徒)")
