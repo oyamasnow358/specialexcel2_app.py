@@ -28,21 +28,15 @@ SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 # ---------------------------------------------------------
 
 def read_csv_auto_encoding(file_path):
-    """
-    CSVを読み込む際、UTF-8 で失敗したら Shift-JIS (cp932) で再トライする関数
-    日本のExcelで作ったCSV対策
-    """
+    """CSV読み込み：UTF-8失敗時にShift-JISを試す"""
     try:
-        # まず標準のUTF-8で試す
         return pd.read_csv(file_path, encoding='utf-8')
     except UnicodeDecodeError:
-        # 失敗したらWindowsのShift-JIS(cp932)で試す
         return pd.read_csv(file_path, encoding='cp932')
 
 def load_local_csv():
-    """ローカルのCSVファイルを読み込む"""
+    """ローカルCSV読み込み"""
     try:
-        # 強化した読み込み関数を使用
         s_df = read_csv_auto_encoding("data/bus_stops.csv")
         st_df = read_csv_auto_encoding("data/students.csv")
         return s_df, st_df, True
@@ -50,9 +44,9 @@ def load_local_csv():
         return pd.DataFrame(), pd.DataFrame(), False
 
 def load_from_google_sheets():
-    """Google Sheetsからデータを読み込む (失敗したら例外を投げる)"""
+    """Google Sheets読み込み"""
     if "google_credentials" not in st.secrets:
-        raise ValueError("Secretsが見つかりません")
+        raise ValueError("Secretsなし")
 
     creds_dict = dict(st.secrets["google_credentials"])
     if "private_key" in creds_dict:
@@ -65,17 +59,15 @@ def load_from_google_sheets():
     
     service = build('sheets', 'v4', credentials=credentials)
 
-    # バス停データ取得
+    # バス停
     sheet_stops = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID, range="bus_stops!A:E").execute()
     rows_stops = sheet_stops.get('values', [])
     stops_df = pd.DataFrame(rows_stops[1:], columns=rows_stops[0])
-    
-    # 型変換
     stops_df["lat"] = pd.to_numeric(stops_df["lat"], errors='coerce')
     stops_df["lng"] = pd.to_numeric(stops_df["lng"], errors='coerce')
 
-    # 生徒データ取得
+    # 生徒
     sheet_students = service.spreadsheets().values().get(
         spreadsheetId=SPREADSHEET_ID, range="students!A:D").execute()
     rows_students = sheet_students.get('values', [])
@@ -85,31 +77,26 @@ def load_from_google_sheets():
 
 @st.cache_data(ttl=600)
 def load_data():
-    """メインの読み込み関数"""
+    """データ読み込みメイン処理"""
     data_source = "未定義"
-    
     try:
         stops_df, students_df = load_from_google_sheets()
         if stops_df.empty: raise ValueError("Sheet Empty")
         data_source = "Google Sheets (オンライン)"
-    
     except Exception as e:
-        # APIエラー時はCSVへフォールバック
         print(f"API Error: {e}") 
         stops_df, students_df, success = load_local_csv()
         if success:
             data_source = "CSVファイル (オフライン)"
         else:
-            st.error("データの読み込みに失敗しました。dataフォルダにCSVがあるか確認してください。")
+            st.error("データ読み込み失敗。dataフォルダのCSVを確認してください。")
             st.stop()
-            
     return stops_df, students_df, data_source
 
-# データのロード実行
 stops_df, students_df, current_source = load_data()
 
 # ---------------------------------------------------------
-# 🧠 ロジック処理
+# 🧠 ロジック
 # ---------------------------------------------------------
 def get_students_at_stop(route, stop_name):
     filtered = students_df[
@@ -117,16 +104,14 @@ def get_students_at_stop(route, stop_name):
         (students_df["stop_name"] == stop_name)
     ]
     if filtered.empty: return None
-    
     to_school = filtered[filtered["direction"] == "登校"]["name"].tolist()
     from_school = filtered[filtered["direction"] == "下校"]["name"].tolist()
     return {"to": to_school, "from": from_school}
 
 # ---------------------------------------------------------
-# 📱 サイドバー & 検索機能
+# 📱 サイドバー & 検索
 # ---------------------------------------------------------
 st.sidebar.header("🚌 運行マップ検索")
-
 if "CSV" in current_source:
     st.sidebar.warning(f"⚠️ {current_source}")
 else:
@@ -145,7 +130,7 @@ if search_query:
         st.sidebar.success(f"発見: {found_student['name']} さん ({found_student['route']} - {found_student['stop_name']})")
         selected_route = found_student['route']
     else:
-        st.sidebar.warning("該当する生徒が見つかりません")
+        st.sidebar.warning("該当生徒なし")
 
 # ---------------------------------------------------------
 # 🗺️ 地図生成
@@ -158,11 +143,10 @@ else:
 
 m = folium.Map(location=[center_lat, center_lng], zoom_start=13, tiles="CartoDB positron")
 
-# ■ レイヤー1: 路線図（GeoJSON）
+# 路線図 (GeoJSON)
 try:
     with open("data/routes.geojson", "r", encoding="utf-8") as f:
         geojson_data = json.load(f)
-
     folium.GeoJson(
         geojson_data,
         style_function=lambda feature: {
@@ -175,11 +159,10 @@ try:
 except Exception:
     pass
 
-# ■ レイヤー2: バス停ピン
+# バス停ピン
 for _, row in stops_df.iterrows():
     r_name = row["route"]
     s_name = row["stop_name"]
-    
     is_selected_route = (selected_route == "すべて表示") or (selected_route == r_name)
     is_search_target = False
     
@@ -236,4 +219,6 @@ for _, row in stops_df.iterrows():
         ).add_to(m)
 
 st.title("🚌 スクールバス運行マップ")
-st_folium(m, width="100%", height=500, responsive=True)
+
+# 修正箇所: use_container_width=True を使用
+st_folium(m, use_container_width=True, height=500)
