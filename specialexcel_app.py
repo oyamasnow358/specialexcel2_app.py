@@ -16,18 +16,22 @@ PASSWORD = st.secrets.get("app_password", "school1234")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # 🎨 デザイン・配色設定
-# 8路線の色定義 (GeoJSONのnameプロパティとCSVのroute列と一致させること)
+# 12便まで対応 (GeoJSONのnameプロパティとCSVのroute列と一致させること)
 ROUTE_COLORS = {
-    "1便": "#E69F00", # オレンジ
-    "2便": "#56B4E9", # スカイブルー
-    "3便": "#009E73", # 青緑
-    "4便": "#F0E442", # 黄色
-    "5便": "#0072B2", # 青
-    "6便": "#D55E00", # 朱色
-    "7便": "#CC79A7", # 赤紫
-    "8便": "#999999"  # グレー
+    "1便": "#E69F00",  # オレンジ
+    "2便": "#56B4E9",  # スカイブルー
+    "3便": "#009E73",  # 青緑
+    "4便": "#F0E442",  # 黄色
+    "5便": "#0072B2",  # 青
+    "6便": "#D55E00",  # 朱色
+    "7便": "#CC79A7",  # 赤紫
+    "8便": "#999999",  # グレー
+    "9便": "#882255",  # ワインレッド
+    "10便": "#AA4499", # 紫
+    "11便": "#332288", # 紺
+    "12便": "#DDCC77"  # 薄茶
 }
-DEFAULT_COLOR = "#333333"
+DEFAULT_COLOR = "#333333" # 定義外の路線は黒
 
 def check_password():
     """ログイン認証画面"""
@@ -137,7 +141,7 @@ mode = st.sidebar.radio(
 )
 is_to_school = (mode == "☀️ 登校 (行き)")
 
-# 2. 生徒検索機能 (完全復活)
+# 2. 生徒検索機能
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 生徒検索")
 search_query = st.sidebar.text_input("生徒名を入力", placeholder="例: 佐藤")
@@ -213,7 +217,7 @@ else:
 m = folium.Map(location=[center_lat, center_lng], zoom_start=zoom_start, tiles="CartoDB positron")
 
 # ---------------------------------------------------------
-# 📍 レイヤー1: 路線図 (GeoJSON) - 色分け・自動修復対応
+# 📍 レイヤー1: 路線図 (GeoJSON) - 12便対応・色分け
 # ---------------------------------------------------------
 geojson_path = "data/routes.geojson"
 if os.path.exists(geojson_path):
@@ -221,20 +225,30 @@ if os.path.exists(geojson_path):
         with open(geojson_path, "r", encoding="utf-8") as f:
             geojson_data = json.load(f)
         
-        # GeoJSONの不備を自動補正
+        # GeoJSONの不備を自動補正 (ここが色分け復活の鍵)
         if "features" in geojson_data:
             for feature in geojson_data["features"]:
-                if "properties" not in feature: feature["properties"] = {}
-                if "name" not in feature["properties"]: feature["properties"]["name"] = "不明"
+                if "properties" not in feature:
+                    feature["properties"] = {}
+                
+                # nameがない、または空の場合の安全策
+                if "name" not in feature["properties"]:
+                    feature["properties"]["name"] = "不明"
 
         # スタイル関数
         def style_function(feature):
-            r_name = feature['properties']['name']
+            # プロパティから路線名を取得（エラー回避のため安全に取得）
+            props = feature.get('properties', {})
+            r_name = props.get('name', '不明')
+            
             # 検索ヒットまたは選択中の路線以外は薄くする
             is_active = (selected_route == "すべて表示") or (selected_route == r_name)
             
+            # 色の決定（辞書にない場合はデフォルト色）
+            line_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR)
+            
             return {
-                'color': ROUTE_COLORS.get(r_name, DEFAULT_COLOR),
+                'color': line_color,
                 'weight': 6 if is_active else 2,
                 'opacity': 0.9 if is_active else 0.2
             }
@@ -244,11 +258,11 @@ if os.path.exists(geojson_path):
             style_function=style_function,
             tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['便名:'])
         ).add_to(m)
-    except Exception:
-        pass # エラー時は線を描画しないだけ
+    except Exception as e:
+        st.error(f"路線データ読み込みエラー: {e}")
 
 # ---------------------------------------------------------
-# 📍 レイヤー2: バス停ピン - 検索強調・色分け対応
+# 📍 レイヤー2: バス停ピン - 12便対応・検索強調
 # ---------------------------------------------------------
 for _, row in stops_df.iterrows():
     r_name = row["route"]
@@ -289,7 +303,7 @@ for _, row in stops_df.iterrows():
         fill_opacity = 0.4
         z_index_offset = -1
 
-    # ポップアップ内容 (HTMLで見やすく)
+    # ポップアップ内容
     popup_html = f"""
     <div style="font-family:sans-serif; width:180px;">
         <h4 style="margin:0; color:{ROUTE_COLORS.get(r_name, 'black')};">{s_name}</h4>
@@ -325,59 +339,71 @@ for _, row in stops_df.iterrows():
 st_folium(m, use_container_width=True, height=750)
 
 # ---------------------------------------------------------
-# 📋 詳細リスト表示 (検索ハイライト付き)
+# 📋 詳細リスト表示 (全路線対応版)
 # ---------------------------------------------------------
 st.markdown("---")
 
-if selected_route != "すべて表示":
+# 表示する路線を決定（すべて表示なら全路線、そうでなければ選択路線のみ）
+if selected_route == "すべて表示":
+    target_routes = sorted(stops_df["route"].unique().tolist())
+    st.subheader(f"📄 全路線の運行予定 ({mode})")
+else:
+    target_routes = [selected_route]
     st.subheader(f"📄 {selected_route} 詳細スケジュール")
-    
-    # リストデータの作成
-    route_stops = stops_df[stops_df["route"] == selected_route].copy()
+
+# 全データの結合処理
+all_rows = []
+
+for r_name in target_routes:
+    # その路線のバス停を抽出
+    route_stops = stops_df[stops_df["route"] == r_name].copy()
     if "sequence" in route_stops.columns:
         route_stops = route_stops.sort_values("sequence")
         
-    result_rows = []
-    
     for _, stop in route_stops.iterrows():
         s_name = stop["stop_name"]
         s_time = stop.get("time_to", "-") if is_to_school else stop.get("time_from", "-")
         
         # 生徒抽出
         target_direction = "登校" if is_to_school else "下校"
+        
         students_here = students_df[
-            (students_df["route"] == selected_route) & 
+            (students_df["route"] == r_name) & 
             (students_df["stop_name"] == s_name) &
             (students_df["direction"] == target_direction)
         ]["name"].tolist()
         
         # ★検索ハイライト処理★
-        # 検索された生徒がいる行にはマークをつける
-        row_style = ""
         if found_student is not None and found_student["name"] in students_here:
-            s_name = f"🔴 {s_name} (検索ヒット)"
+            display_stop_name = f"🔴 {s_name} (検索ヒット)"
             # リスト内でもその生徒名を強調
             students_here = [f"**{s}**" if s == found_student["name"] else s for s in students_here]
+        else:
+            display_stop_name = s_name
 
-        result_rows.append({
+        all_rows.append({
+            "路線名": r_name,
             "予定時刻": s_time,
-            "バス停名": s_name,
+            "バス停名": display_stop_name,
             f"{target_direction}生徒 ({len(students_here)}名)": "、".join(students_here)
         })
+
+# データフレーム作成と表示
+df_display = pd.DataFrame(all_rows)
+
+if not df_display.empty:
+    # 路線名でソートして見やすくする
+    # df_display = df_display.sort_values(["路線名", "予定時刻"]) # 必要に応じてソート
     
-    df_display = pd.DataFrame(result_rows)
-    
-    if not df_display.empty:
-        st.dataframe(
-            df_display, 
-            hide_index=True, 
-            use_container_width=True,
-            column_config={
-                "予定時刻": st.column_config.TextColumn("⏰ 時間", width="small"),
-                "バス停名": st.column_config.TextColumn("🚏 バス停", width="medium"),
-            }
-        )
-    else:
-        st.info("データがありません")
+    st.dataframe(
+        df_display, 
+        hide_index=True, 
+        use_container_width=True,
+        column_config={
+            "路線名": st.column_config.TextColumn("🚌 便名", width="small"),
+            "予定時刻": st.column_config.TextColumn("⏰ 時間", width="small"),
+            "バス停名": st.column_config.TextColumn("🚏 バス停", width="medium"),
+        }
+    )
 else:
-    st.info("👈 サイドバーで路線を選択するか、生徒名を入力して検索してください。")
+    st.info("データがありません")
