@@ -292,12 +292,12 @@ else:
     center_lng = stops_df["lng"].mean() if not stops_df.empty else 139.6917
     zoom_start = 14
 
-# 【改善点】scrollWheelZoom=False に設定して、意図しないズーム操作を防ぐ
+# マップ設定 (スクロールズーム無効化)
 m = folium.Map(
     location=[center_lat, center_lng], 
     zoom_start=zoom_start, 
     tiles="CartoDB positron",
-    scrollWheelZoom=False  # スクロールによる意図しないズームを防ぐ
+    scrollWheelZoom=False
 )
 
 # 📍 路線図
@@ -348,13 +348,39 @@ for _, row in stops_df.iterrows():
     
     t_display = f"行き:{row.get('time_to','-')} / 帰り:{row.get('time_from','-')}"
     
+    # -----------------------------------------------------
+    # 🆕 ポップアップ用 生徒リスト作成 (モード依存)
+    # -----------------------------------------------------
+    students_at_stop_map = students_df[
+        (students_df["route"] == r_name) & 
+        (students_df["stop_name"] == s_name)
+    ]
+    
+    # モードによる絞り込み
+    if is_to_school:
+        students_at_stop_map = students_at_stop_map[students_at_stop_map["direction"].str.contains("登校", na=False)]
+    elif is_from_school:
+        students_at_stop_map = students_at_stop_map[students_at_stop_map["direction"].str.contains("下校", na=False)]
+    
+    # リスト文字列化
+    s_names_list = students_at_stop_map["name"].tolist()
+    if s_names_list:
+        # 名前が多い場合は適度に見やすくするため、改行ではなくカンマ区切りにする
+        s_names_str = "、".join(s_names_list)
+    else:
+        s_names_str = "(なし)"
+
+    # ポップアップHTML構築
     popup_html = f"""
-    <div style="font-family:sans-serif; width:200px;">
+    <div style="font-family:sans-serif; width:220px;">
         <h4 style="margin:0; color:{ROUTE_COLORS.get(r_name, 'black')};">{s_name}</h4>
         <div style="background-color:#f0f0f0; padding:5px; margin:5px 0; border-radius:4px;">
             <small>{t_display}</small>
         </div>
-        <small>{r_name}</small>
+        <div style="margin-top:5px; font-size:0.9em;">
+            <strong>生徒:</strong> {s_names_str}
+        </div>
+        <small style="color:gray;">{r_name}</small>
     </div>
     """
     
@@ -377,10 +403,9 @@ for _, row in stops_df.iterrows():
             tooltip=f"{target_student_info['name']} さん"
         ).add_to(m)
 
-# 【改善点】Expanderを使って、スマホでマップを折りたたみ可能にする
-# PCでは大きく見たいので expanded=True にする。スマホでは邪魔なら閉じられる。
+# 【修正】高さ(height)を750->500に変更してスマホでのスクロール性を改善
 with st.expander("🗺️ 運行マップ (クリックで開閉)", expanded=True):
-    st_folium(m, use_container_width=True, height=750)
+    st_folium(m, use_container_width=True, height=500)
 
 # =========================================================
 # 📋 詳細リスト (各便ごとに表)
