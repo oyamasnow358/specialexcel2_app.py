@@ -25,21 +25,29 @@ ROUTE_COLORS = {
 DEFAULT_COLOR = "#333333"
 
 # ---------------------------------------------------------
-# 🔑 Google API 認証 & 設定 (ご提示コードの統合)
+# 🔑 Google API 認証 & 設定
 # ---------------------------------------------------------
 
 # Secrets から認証情報を取得
-# .streamlit/secrets.toml に記述が必要です
 try:
+    # 辞書としてコピーを取得
+    # st.secrets オブジェクトそのままだと書き換えできない場合があるため dict() に変換
+    creds_dict = dict(st.secrets["google_credentials"])
+
+    # 【重要】private_key の改行コード修正
+    # TOMLファイルから読み込むと \n がエスケープされていることがあるため、正しい改行に戻す
+    if "private_key" in creds_dict:
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
     credentials = Credentials.from_service_account_info(
-        st.secrets["google_credentials"],
+        creds_dict,
         scopes=[
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
         ]
     )
 except Exception as e:
-    st.error("Google認証情報の読み込みに失敗しました。.streamlit/secrets.toml を確認してください。")
+    st.error(f"Google認証情報の読み込みに失敗しました: {e}")
     st.stop()
 
 # Google Sheets API クライアントを作成
