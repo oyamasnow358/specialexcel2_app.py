@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 import json
 import os
 
-# Google API 関連 (エラーが出ても止まらないように try-except で囲む準備)
+# Google API 関連
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 
@@ -27,22 +27,33 @@ SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 # 📥 データ読み込みロジック (API -> 失敗ならCSV)
 # ---------------------------------------------------------
 
+def read_csv_auto_encoding(file_path):
+    """
+    CSVを読み込む際、UTF-8 で失敗したら Shift-JIS (cp932) で再トライする関数
+    日本のExcelで作ったCSV対策
+    """
+    try:
+        # まず標準のUTF-8で試す
+        return pd.read_csv(file_path, encoding='utf-8')
+    except UnicodeDecodeError:
+        # 失敗したらWindowsのShift-JIS(cp932)で試す
+        return pd.read_csv(file_path, encoding='cp932')
+
 def load_local_csv():
     """ローカルのCSVファイルを読み込む"""
     try:
-        s_df = pd.read_csv("data/bus_stops.csv")
-        st_df = pd.read_csv("data/students.csv")
+        # 強化した読み込み関数を使用
+        s_df = read_csv_auto_encoding("data/bus_stops.csv")
+        st_df = read_csv_auto_encoding("data/students.csv")
         return s_df, st_df, True
     except FileNotFoundError:
         return pd.DataFrame(), pd.DataFrame(), False
 
 def load_from_google_sheets():
     """Google Sheetsからデータを読み込む (失敗したら例外を投げる)"""
-    # Secretsがない、またはキーがおかしい場合はここでエラーになる
     if "google_credentials" not in st.secrets:
         raise ValueError("Secretsが見つかりません")
 
-    # 認証情報の作成 (改行コード対応)
     creds_dict = dict(st.secrets["google_credentials"])
     if "private_key" in creds_dict:
         creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
@@ -74,27 +85,22 @@ def load_from_google_sheets():
 
 @st.cache_data(ttl=600)
 def load_data():
-    """
-    メインの読み込み関数
-    1. Google Sheets にトライ
-    2. ダメなら CSV にフォールバック
-    """
+    """メインの読み込み関数"""
     data_source = "未定義"
     
-    # 1. APIでの読み込みを試みる
     try:
         stops_df, students_df = load_from_google_sheets()
         if stops_df.empty: raise ValueError("Sheet Empty")
         data_source = "Google Sheets (オンライン)"
     
     except Exception as e:
-        # 2. エラーが出たらログを出してCSVに切り替え
-        print(f"API Error: {e}") # サーバーログ用
+        # APIエラー時はCSVへフォールバック
+        print(f"API Error: {e}") 
         stops_df, students_df, success = load_local_csv()
         if success:
             data_source = "CSVファイル (オフライン)"
         else:
-            st.error("データの読み込みに失敗しました。API設定を確認するか、dataフォルダにCSVを配置してください。")
+            st.error("データの読み込みに失敗しました。dataフォルダにCSVがあるか確認してください。")
             st.stop()
             
     return stops_df, students_df, data_source
@@ -121,17 +127,14 @@ def get_students_at_stop(route, stop_name):
 # ---------------------------------------------------------
 st.sidebar.header("🚌 運行マップ検索")
 
-# 接続モードの表示
 if "CSV" in current_source:
     st.sidebar.warning(f"⚠️ {current_source}")
 else:
     st.sidebar.success(f"🟢 {current_source}")
 
-# 路線選択
 route_list = sorted(stops_df["route"].unique()) if not stops_df.empty else []
 selected_route = st.sidebar.selectbox("📍 路線を強調表示", ["すべて表示"] + route_list)
 
-# 生徒検索
 search_query = st.sidebar.text_input("🔍 生徒名で検索", placeholder="例: 佐藤")
 found_student = None
 
@@ -151,12 +154,11 @@ if not stops_df.empty:
     center_lat = stops_df["lat"].mean()
     center_lng = stops_df["lng"].mean()
 else:
-    center_lat, center_lng = 35.6895, 139.6917 # デフォルト東京
+    center_lat, center_lng = 35.6895, 139.6917
 
 m = folium.Map(location=[center_lat, center_lng], zoom_start=13, tiles="CartoDB positron")
 
-# ■ レイヤー1: 路線図（GeoJSONファイルから読み込み）
-# 線データがない場合でもエラーで止まらないようにする
+# ■ レイヤー1: 路線図（GeoJSON）
 try:
     with open("data/routes.geojson", "r", encoding="utf-8") as f:
         geojson_data = json.load(f)
@@ -170,8 +172,7 @@ try:
         },
         tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['路線:'])
     ).add_to(m)
-except FileNotFoundError:
-    # GeoJSONがない場合は何もしない（ピンのみ表示）
+except Exception:
     pass
 
 # ■ レイヤー2: バス停ピン
@@ -186,7 +187,6 @@ for _, row in stops_df.iterrows():
         if found_student["route"] == r_name and found_student["stop_name"] == s_name:
             is_search_target = True
 
-    # スタイル設定
     if is_search_target:
         icon_color = "red"
         radius = 10
@@ -200,7 +200,6 @@ for _, row in stops_df.iterrows():
         radius = 3
         fill_opacity = 0.5
 
-    # Popup作成
     students_info = get_students_at_stop(r_name, s_name)
     popup_html = f"<b>{s_name}</b> ({r_name})"
     
