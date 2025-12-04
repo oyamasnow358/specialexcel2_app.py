@@ -21,7 +21,7 @@ ROUTE_COLORS = {
     "1便": "#E69F00", "2便": "#56B4E9", "3便": "#009E73", "4便": "#F0E442",
     "5便": "#0072B2", "6便": "#D55E00", "7便": "#CC79A7", "8便": "#999999",
     "9便": "#882255", "10便": "#AA4499", "11便": "#332288", "12便": "#DDCC77",
-    # 旧名称 (念のため)
+    # 旧名称
     "Aコース": "#E69F00", "Bコース": "#56B4E9", "Cコース": "#009E73", "Dコース": "#F0E442",
     "Eコース": "#0072B2", "Fコース": "#D55E00", "Gコース": "#CC79A7", "Hコース": "#999999"
 }
@@ -153,14 +153,13 @@ if search_query:
     # 部分一致検索
     search_candidates = students_df[students_df["name"].str.contains(search_query, na=False)]
 
-# B. 検索結果ハンドリング (Indexを使ってKeyErrorを防ぐ)
+# B. 検索結果ハンドリング
 if not search_candidates.empty:
     if len(search_candidates) == 1:
         target_student_info = search_candidates.iloc[0]
         st.sidebar.success(f"発見: {target_student_info['name']}")
     else:
         st.sidebar.warning(f"{len(search_candidates)}名 ヒット")
-        # インデックスを使って一意に特定
         candidate_indices = search_candidates.index.tolist()
         
         def format_candidate(idx):
@@ -186,24 +185,21 @@ if target_student_info is not None:
 
 selected_route = st.sidebar.selectbox("📍 路線選択", route_options, index=default_ix)
 
-# D. 路線内の生徒ドロップダウン (KeyError対策済み)
+# D. 路線内の生徒ドロップダウン
 if selected_route != "すべて表示":
     students_in_route = students_df[students_df["route"] == selected_route].sort_values("name")
     
-    # 選択肢作成 (インデックス管理)
+    # 選択肢作成
     student_indices = students_in_route.index.tolist()
     
-    # デフォルト選択位置の決定
     default_sel_idx = None
     if target_student_info is not None:
         if target_student_info.name in student_indices: 
             default_sel_idx = student_indices.index(target_student_info.name)
 
-    # セレクトボックス用オプション (None + Indices)
     options = [None] + student_indices
     def format_student_opt(idx):
         if idx is None: return "(選択なし)"
-        # 安全確認：Indexが存在するかチェック
         if idx in students_in_route.index:
             return students_in_route.loc[idx, "name"]
         return "不明"
@@ -219,7 +215,6 @@ if selected_route != "すべて表示":
         index=box_idx
     )
     
-    # 【重要】KeyError対策: 存在確認をしてから取得
     if selected_student_idx is not None and selected_student_idx in students_in_route.index:
         target_student_info = students_in_route.loc[selected_student_idx]
 
@@ -247,19 +242,16 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# ★★★ 生徒詳細カード（常時表示・全情報表示） ★★★
+# ★★★ 生徒詳細カード ★★★
 if target_student_info is not None:
-    # 該当路線のバス停情報を取得
     s_stop_info = stops_df[
         (stops_df["route"] == target_student_info["route"]) & 
         (stops_df["stop_name"] == target_student_info["stop_name"])
     ]
     
-    # 情報取得（なければハイフン）
     t_to = s_stop_info.iloc[0].get("time_to", "-") if not s_stop_info.empty else "-"
     t_from = s_stop_info.iloc[0].get("time_from", "-") if not s_stop_info.empty else "-"
     
-    # 枠付きで表示
     st.info(f"""
     **👤 生徒詳細: {target_student_info['name']} さん**  
     📍 **{target_student_info['route']}** - **{target_student_info['stop_name']}** (登録区分: {target_student_info['direction']})
@@ -288,7 +280,7 @@ else:
 
 m = folium.Map(location=[center_lat, center_lng], zoom_start=zoom_start, tiles="CartoDB positron")
 
-# 📍 路線図 (GeoJSON)
+# 📍 路線図
 geojson_path = "data/routes.geojson"
 if os.path.exists(geojson_path):
     try:
@@ -357,7 +349,7 @@ for _, row in stops_df.iterrows():
 st_folium(m, use_container_width=True, height=750)
 
 # =========================================================
-# 📋 詳細リスト (表)
+# 📋 詳細リスト (各便ごとに表)
 # =========================================================
 st.markdown("---")
 
@@ -379,7 +371,6 @@ for r_name in target_routes:
     for _, stop in route_stops.iterrows():
         s_name = stop["stop_name"]
         
-        # 生徒抽出 (KeyErrorの原因を排除したシンプルなフィルタ)
         students_at_stop = students_df[
             (students_df["route"] == r_name) & 
             (students_df["stop_name"] == s_name)
@@ -387,31 +378,25 @@ for r_name in target_routes:
         
         students_list_str = []
         
-        # モードに応じたフィルタリング
         if is_all_mode:
-            # すべて表示: 方向情報を付与して全員表示
             for _, st_row in students_at_stop.iterrows():
                 d_raw = str(st_row["direction"])
                 d_mark = d_raw[0] if len(d_raw) > 0 else "?"
                 students_list_str.append(f"{st_row['name']}({d_mark})")
         else:
-            # 登校または下校のみ
             target_str = "登校" if is_to_school else "下校"
-            # 部分一致でフィルタ (空白対策済み)
             filtered = students_at_stop[students_at_stop["direction"].str.contains(target_str, na=False)]
             students_list_str = filtered["name"].tolist()
 
-        # ターゲット生徒のハイライト処理
+        # ターゲット生徒ハイライト
         display_stop = s_name
         if target_student_info is not None and target_student_info["stop_name"] == s_name and target_student_info["route"] == r_name:
             display_stop = f"🔴 {s_name}"
             target_name = target_student_info["name"]
-            # リスト内で名前を太字にする
             students_list_str = [f"**{s}**" if target_name in s else s for s in students_list_str]
 
         final_student_str = "、".join(students_list_str)
         
-        # 行データ作成
         row_data = {"バス停名": display_stop}
         
         if is_all_mode:
@@ -430,7 +415,6 @@ for r_name in target_routes:
     df_table = pd.DataFrame(table_rows)
     
     if not df_table.empty:
-        # カラム設定
         cols_config = {
             "バス停名": st.column_config.TextColumn("🚏 バス停", width="medium"),
         }
@@ -450,3 +434,52 @@ for r_name in target_routes:
     else:
         st.caption("データなし")
     st.markdown("<br>", unsafe_allow_html=True)
+
+# =========================================================
+# 🆕 追加機能: 選択路線の全利用者名簿 (一番下に追加)
+# =========================================================
+if selected_route != "すべて表示":
+    st.markdown("---")
+    st.subheader(f"👥 {selected_route} 利用生徒名簿 (バス停順)")
+    
+    # 1. その路線の生徒を抽出
+    roster_df = students_df[students_df["route"] == selected_route].copy()
+    
+    # 2. モードによる絞り込み
+    if is_to_school:
+        roster_df = roster_df[roster_df["direction"].str.contains("登校", na=False)]
+    elif is_from_school:
+        roster_df = roster_df[roster_df["direction"].str.contains("下校", na=False)]
+    # 全て表示の場合は絞り込まない
+    
+    # 3. バス停順に並び替えるためのマージ処理
+    # stop_name をキーにして sequence を結合する
+    route_stops_order = stops_df[stops_df["route"] == selected_route][["stop_name", "sequence"]]
+    
+    if not route_stops_order.empty and not roster_df.empty:
+        # マージ
+        roster_df = pd.merge(roster_df, route_stops_order, on="stop_name", how="left")
+        
+        # ソート (sequence順、同じバス停なら名前順)
+        if "sequence" in roster_df.columns:
+            roster_df = roster_df.sort_values(by=["sequence", "name"])
+        else:
+            roster_df = roster_df.sort_values(by="name")
+    
+    # 4. 表示用データ整理
+    if not roster_df.empty:
+        display_cols = ["name", "stop_name", "direction"]
+        roster_display = roster_df[display_cols]
+        
+        st.dataframe(
+            roster_display,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "name": st.column_config.TextColumn("👤 生徒名", width="medium"),
+                "stop_name": st.column_config.TextColumn("🚏 利用バス停", width="medium"),
+                "direction": st.column_config.TextColumn("↔️ 区分", width="small"),
+            }
+        )
+    else:
+        st.info("この条件での利用者はいません。")
