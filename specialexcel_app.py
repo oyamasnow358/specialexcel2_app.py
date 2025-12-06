@@ -17,7 +17,6 @@ PASSWORD = st.secrets.get("app_password", "bass")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # 🎨 12便対応・配色設定
-# 【修正】データ上の名前と一致するように、バリエーションを含めて定義しました
 ROUTE_COLORS = {
     # --- 数字の便名 ---
     "1便": "#E69F00", 
@@ -40,23 +39,22 @@ ROUTE_COLORS = {
     "小溝便": "#0072B2", 
     "東岩槻便": "#CC79A7", 
     
-    # 府内便 (バリエーション網羅)
+    # 府内便
     "府内便": "#882255",
     "府内便（登校）": "#882255",
     "府内便（下校）": "#882255", 
     
     "井沼便": "#AA4499", 
     
-    # 美園便 (バリエーション網羅)
+    # 美園便
     "美園便": "#332288",
     "美園便（登校）": "#332288",
     "美園便（下校）": "#332288", 
 
-    # --- 旧コース名称 (念のため維持) ---
+    # --- 旧コース名称 ---
     "Aコース": "#E69F00", "Bコース": "#56B4E9", "Cコース": "#009E73", "Dコース": "#F0E442",
     "Eコース": "#0072B2", "Fコース": "#D55E00", "Gコース": "#CC79A7", "Hコース": "#999999"
 }
-
 
 DEFAULT_COLOR = "#333333"
 
@@ -309,20 +307,30 @@ if target_student_info is not None:
     """)
 
 # 地図設定
+# 緯度経度が有効なデータのみで中心点を計算する（エラー回避）
+valid_stops = stops_df.dropna(subset=["lat", "lng"])
+
 if target_student_info is not None:
     target_stop = stops_df[
         (stops_df["route"] == target_student_info["route"]) & 
         (stops_df["stop_name"] == target_student_info["stop_name"])
     ]
-    if not target_stop.empty:
+    if not target_stop.empty and pd.notna(target_stop.iloc[0]["lat"]) and pd.notna(target_stop.iloc[0]["lng"]):
         center_lat, center_lng = target_stop.iloc[0]["lat"], target_stop.iloc[0]["lng"]
         zoom_start = 16
     else:
-        center_lat, center_lng = stops_df["lat"].mean(), stops_df["lng"].mean()
+        # ターゲットの座標がない場合は全体の中心
+        if not valid_stops.empty:
+            center_lat, center_lng = valid_stops["lat"].mean(), valid_stops["lng"].mean()
+        else:
+            center_lat, center_lng = 35.6895, 139.6917
         zoom_start = 14
 else:
-    center_lat = stops_df["lat"].mean() if not stops_df.empty else 35.6895
-    center_lng = stops_df["lng"].mean() if not stops_df.empty else 139.6917
+    if not valid_stops.empty:
+        center_lat = valid_stops["lat"].mean()
+        center_lng = valid_stops["lng"].mean()
+    else:
+        center_lat, center_lng = 35.6895, 139.6917
     zoom_start = 14
 
 # マップ設定 (スクロールズーム無効化)
@@ -370,6 +378,10 @@ if os.path.exists(geojson_path):
 
 # 📍 バス停ピン
 for _, row in stops_df.iterrows():
+    # 【エラー修正】緯度または経度がNaN(空データ)の場合はスキップする
+    if pd.isna(row["lat"]) or pd.isna(row["lng"]):
+        continue
+
     r_name = row["route"]
     s_name = row["stop_name"]
     
