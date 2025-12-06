@@ -16,32 +16,25 @@ from google.oauth2.service_account import Credentials
 PASSWORD = st.secrets.get("app_password", "bass")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
-# 🎨 配色設定
-# JSONのキー（"西原便", "美園便（登校）"など）と一致させました
+# 🎨 配色設定 (ご指定の色に変更・不要な便を削除)
 ROUTE_COLORS = {
-    # --- 漢字名称 (JSON/CSV用) ---
+    # --- 指定カラー ---
+    "井沼便": "#FF0000",    # 赤色
+    "東岩槻便": "#FF9900",  # オレンジ色
+    "美園便": "#800080",    # 紫色
+    "美園便（登校）": "#800080",
+    "美園便（下校）": "#800080",
+
+    # --- その他の便 ---
     "西原便": "#56B4E9",    # 水色
     "諏訪便": "#009E73",    # 緑
     "加倉便": "#F0E442",    # 黄色
     "小溝便": "#0072B2",    # 青
-    "東岩槻便": "#CC79A7",  # ピンク
-    "井沼便": "#AA4499",    # 紫
-
-    # --- 府内・美園 (カッコあり・なし両対応) ---
-    "府内便": "#882255",          # ワインレッド
+    
+    # 府内便
+    "府内便": "#882255",    # ワインレッド
     "府内便（登校）": "#882255",
     "府内便（下校）": "#882255",
-    
-    "美園便": "#332288",          # 紺色
-    "美園便（登校）": "#332288",
-    "美園便（下校）": "#332288",
-
-    # --- その他・予備 (数字や旧コース名) ---
-    "1便": "#E69F00", "2便": "#56B4E9", "3便": "#009E73", "4便": "#F0E442",
-    "5便": "#0072B2", "6便": "#D55E00", "7便": "#CC79A7", "8便": "#999999",
-    "9便": "#882255", "10便": "#AA4499", "11便": "#332288", "12便": "#DDCC77",
-    "Aコース": "#E69F00", "Bコース": "#56B4E9", "Cコース": "#009E73", "Dコース": "#F0E442",
-    "Eコース": "#0072B2", "Fコース": "#D55E00", "Gコース": "#CC79A7", "Hコース": "#999999"
 }
 
 DEFAULT_COLOR = "#333333" # 黒（不明な場合）
@@ -335,47 +328,58 @@ Fullscreen(
     force_separate_button=True
 ).add_to(m)
 
-# 📍 路線図 (JSONのキーから名前を判定するように修正)
-geojson_path = "data/routes.geojson"
-if os.path.exists(geojson_path):
-    try:
-        with open(geojson_path, "r", encoding="utf-8") as f:
-            geojson_data = json.load(f)
-        
-        if "features" in geojson_data:
-            for feature in geojson_data["features"]:
-                if "properties" not in feature:
-                    feature["properties"] = {}
-                # 名前がない場合、不明をセットしておく
-                if "name" not in feature["properties"]:
-                    feature["properties"]["name"] = "不明"
+# -----------------------------------------------------------------------------
+# 🆕 複数JSON読み込み機能 (通常、時差、高等部)
+# -----------------------------------------------------------------------------
+# 読み込みたいJSONファイルリスト
+target_geojson_files = [
+    "data/routes.geojson",        # 通常便
+    "data/routes_jisa.geojson",   # 時差便
+    "data/routes_kotobu.geojson"  # 高等部時差便
+]
 
-        def style_function(feature):
-            props = feature.get('properties', {})
-            r_name = "不明"
+# ループ処理で全て読み込み
+for geojson_path in target_geojson_files:
+    if os.path.exists(geojson_path):
+        try:
+            with open(geojson_path, "r", encoding="utf-8") as f:
+                geojson_data = json.load(f)
             
-            # 1. "name"キーがあればそれを使う
-            if "name" in props and props["name"] != "不明":
-                r_name = props["name"]
-            else:
-                # 2. キー自体が名前になっている場合（JSONの仕様対応）
-                # ROUTE_COLORS に登録されている名前がキーに含まれていればそれを採用
-                for key in props.keys():
-                    if key in ROUTE_COLORS:
-                        r_name = key
-                        break
-            
-            is_active = (selected_route == "すべて表示") or (selected_route == r_name)
-            
-            return {
-                'color': ROUTE_COLORS.get(r_name, DEFAULT_COLOR),
-                'weight': 6 if is_active else 3,
-                'opacity': 0.9 if is_active else 0.4
-            }
+            if "features" in geojson_data:
+                for feature in geojson_data["features"]:
+                    if "properties" not in feature:
+                        feature["properties"] = {}
+                    # nameキーが無ければ初期値
+                    if "name" not in feature["properties"]:
+                        feature["properties"]["name"] = "不明"
 
-        folium.GeoJson(geojson_data, style_function=style_function).add_to(m)
-    except Exception:
-        pass
+            def style_function(feature):
+                props = feature.get('properties', {})
+                r_name = "不明"
+                
+                # 1. "name"キーがあればそれを使う
+                if "name" in props and props["name"] != "不明":
+                    r_name = props["name"]
+                else:
+                    # 2. キー自体が名前になっている場合の対応
+                    for key in props.keys():
+                        if key in ROUTE_COLORS:
+                            r_name = key
+                            break
+                
+                # 選択中の路線と一致すれば強調、すべて表示なら全部表示
+                is_active = (selected_route == "すべて表示") or (selected_route == r_name)
+                
+                return {
+                    'color': ROUTE_COLORS.get(r_name, DEFAULT_COLOR),
+                    'weight': 6 if is_active else 3,
+                    'opacity': 0.9 if is_active else 0.4
+                }
+
+            folium.GeoJson(geojson_data, style_function=style_function).add_to(m)
+        except Exception:
+            # 読み込みエラー時は無視して次へ
+            pass
 
 # 📍 バス停ピン
 for _, row in stops_df.iterrows():
