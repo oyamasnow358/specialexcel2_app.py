@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import folium
@@ -5,6 +6,10 @@ from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 import json
 import os
+
+# 🆕 住所検索・距離計算用ライブラリ
+from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
 
 # Google API 関連
 from googleapiclient.discovery import build
@@ -16,12 +21,14 @@ from google.oauth2.service_account import Credentials
 PASSWORD = st.secrets.get("app_password", "bass")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
-# 🎨 配色設定 (ご指定の色に変更・不要な便を削除)
+# 🎨 配色設定
 ROUTE_COLORS = {
     # --- 指定カラー ---
     "井沼便": "#FF0000",    # 赤色
     "東岩槻便": "#FF9900",  # オレンジ色
-    "美園便": "#800080",    # 紫色
+    
+    # 美園便 (共通・登下校)
+    "美園便": "#800080",          # 紫色
     "美園便（登校）": "#800080",
     "美園便（下校）": "#800080",
 
@@ -29,13 +36,13 @@ ROUTE_COLORS = {
     "西原便": "#56B4E9",    # 水色
     "諏訪便": "#009E73",    # 緑
     "加倉便": "#F0E442",    # 黄色
-    "小溝便": "#060AC2",    # 青
+    "小溝便": "#0072B2",    # 青
     
-    # 府内便
-    "府内便": "#882255",    # ワインレッド
+    # 府内便 (共通・登下校)
+    "府内便": "#882255",          # ワインレッド
     "府内便（登校）": "#882255",
     "府内便（下校）": "#882255",
-
+    
     # --- ココから時差便 ---
     "小中蓮田循環便": "#FF0000",
     "小中岩槻中央便": "#F0E442",
@@ -123,13 +130,13 @@ def load_from_google_sheets():
 
     # バス停
     sheet_stops = service.spreadsheets().values().get(
-        spreadsheetId=SPREADSHEET_ID, range="bus_stops!A:G").execute()
+        spreadsheetId=SPREADSHEET_ID, range="bus_stops!A:H").execute()
     rows_stops = sheet_stops.get('values', [])
     stops_df = pd.DataFrame(rows_stops[1:], columns=rows_stops[0]) if rows_stops else pd.DataFrame()
 
     # 生徒
     sheet_students = service.spreadsheets().values().get(
-        spreadsheetId=SPREADSHEET_ID, range="students!A:D").execute()
+        spreadsheetId=SPREADSHEET_ID, range="students!A:I").execute()
     rows_students = sheet_students.get('values', [])
     students_df = pd.DataFrame(rows_students[1:], columns=rows_students[0]) if rows_students else pd.DataFrame()
 
@@ -151,10 +158,11 @@ def load_data():
             st.error("❌ データ読み込み失敗")
             st.stop()
     
-    # 型変換とカラム補完
+    # 型変換
     stops_df["lat"] = pd.to_numeric(stops_df["lat"], errors='coerce')
     stops_df["lng"] = pd.to_numeric(stops_df["lng"], errors='coerce')
     
+    # 必須カラムがない場合の補完
     for col in ["time_to", "time_from"]:
         if col not in stops_df.columns:
             stops_df[col] = "-"
@@ -164,14 +172,70 @@ def load_data():
         
     return stops_df, students_df, data_source
 
-stops_df, students_df, current_source = load_data()
+# データのロード
+raw_stops_df, raw_students_df, current_source = load_data()
 
 # ---------------------------------------------------------
 # 🧠 UI & ロジック
 # ---------------------------------------------------------
 st.sidebar.title("🚌 運行管理メニュー")
 
-# 1. モード選択
+# 0. 運行スケジュール選択 (3種類に切り替え)
+schedule_mode = st.sidebar.selectbox(
+    "📅 運行スケジュール",
+    ("通常便", "小中時差便", "高時差便"),
+    index=0
+)
+
+st.sidebar.markdown("---")
+
+# 1. データ前処理：スケジュールに応じたデータ抽出・変換
+# -----------------------------------------------------
+
+# (A) バス停データのフィルタリング (CSVの schedule_type 列と対応)
+# CSV上の値: "通常", "時差", "高等部" と想定してマッピングします
+target_schedule_type = "通常"
+if schedule_mode == "小中時差便":
+    target_schedule_type = "時差"
+elif schedule_mode == "高時差便":
+    target_schedule_type = "高等部"
+
+if "schedule_type" in raw_stops_df.columns:
+    stops_df = raw_stops_df[raw_stops_df["schedule_type"] == target_schedule_type].copy()
+else:
+    stops_df = raw_stops_df.copy()
+
+# (B) 生徒データの列マッピング
+students_df = raw_students_df.copy()
+
+if schedule_mode == "通常便":
+    src_route_col = "route_normal"
+    src_stop_col = "stop_normal"
+elif schedule_mode == "小中時差便":
+    src_route_col = "route_jisa"
+    src_stop_col = "stop_jisa"
+else: # 高時差便
+    src_route_col = "route_kotobu"
+    src_stop_col = "stop_kotobu"
+
+# 列マッピング実行
+if src_route_col in students_df.columns and src_stop_col in students_df.columns:
+    students_df["route"] = students_df[src_route_col]
+    students_df["stop_name"] = students_df[src_stop_col]
+
+# 利用なしの生徒を除外
+students_df = students_df[students_df["route"] != ""]
+
+# (C) GeoJSONファイルの決定 (3種類)
+geojson_file_path = "data/routes.geojson" # Default (通常便)
+if schedule_mode == "小中時差便":
+    geojson_file_path = "data/routes_jisa.geojson"
+elif schedule_mode == "高時差便":
+    geojson_file_path = "data/routes_kotobu.geojson"
+
+# -----------------------------------------------------
+
+# 2. モード選択（登校/下校/全体）
 mode_selection = st.sidebar.radio(
     "表示モード",
     ("☀️ 登校 (行き)", "🌙 下校 (帰り)", "🔄 すべて (全体)"),
@@ -182,6 +246,46 @@ is_from_school = (mode_selection == "🌙 下校 (帰り)")
 is_all_mode = (mode_selection == "🔄 すべて (全体)")
 
 target_student_info = None
+search_coords = None  # 住所検索結果の座標
+nearest_stop_info = None # 最寄りバス停情報
+
+# -----------------------------------------------------
+# 🆕 住所で最寄りバス停検索機能
+# -----------------------------------------------------
+st.sidebar.markdown("---")
+st.sidebar.subheader("🏠 住所でバス停検索")
+input_address = st.sidebar.text_input("住所を入力", placeholder="例: 埼玉県さいたま市...")
+
+if st.sidebar.button("最寄りバス停を探す"):
+    if input_address:
+        geolocator = Nominatim(user_agent="bus_route_app_v1")
+        try:
+            location = geolocator.geocode(input_address)
+            if location:
+                search_coords = (location.latitude, location.longitude)
+                
+                # 最寄りバス停計算ロジック
+                # 現在フィルタリングされている stops_df (選択中のスケジュール) から探す
+                valid_stops_for_search = stops_df.dropna(subset=["lat", "lng"]).copy()
+                
+                if not valid_stops_for_search.empty:
+                    # 距離計算
+                    valid_stops_for_search["distance"] = valid_stops_for_search.apply(
+                        lambda row: geodesic(search_coords, (row["lat"], row["lng"])).meters, 
+                        axis=1
+                    )
+                    # 最短距離の行を取得
+                    nearest_row = valid_stops_for_search.loc[valid_stops_for_search["distance"].idxmin()]
+                    nearest_stop_info = nearest_row
+                    
+                    st.sidebar.success(f"📍 最寄り: {nearest_row['stop_name']}")
+                    st.sidebar.info(f"距離: 約{int(nearest_row['distance'])}m\n路線: {nearest_row['route']}")
+                else:
+                    st.sidebar.warning("現在選択中のスケジュールのバス停データがありません。")
+            else:
+                st.sidebar.error("住所が見つかりませんでした。詳細に入力してください。")
+        except Exception as e:
+            st.sidebar.error(f"検索エラー: {e}")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 生徒検索・指定")
@@ -205,13 +309,14 @@ if not search_candidates.empty:
         
         def format_candidate(idx):
             row = search_candidates.loc[idx]
-            return f"{row['name']} ({row['route']} - {row['stop_name']})"
+            dept = f"[{row['department']}] " if "department" in row and row['department'] else ""
+            return f"{dept}{row['name']} ({row['route']} - {row['stop_name']})"
         
         selected_idx = st.sidebar.selectbox("生徒を選択", candidate_indices, format_func=format_candidate)
         if selected_idx in search_candidates.index:
             target_student_info = search_candidates.loc[selected_idx]
 elif search_query:
-    st.sidebar.error("該当者なし")
+    st.sidebar.error("該当者なし（本日利用なしか登録なし）")
 
 # C. 路線選択
 st.sidebar.markdown("---")
@@ -222,6 +327,10 @@ default_ix = 0
 if target_student_info is not None:
     if target_student_info["route"] in route_options:
         default_ix = route_options.index(target_student_info["route"])
+# 最寄り検索された場合、その路線を選択状態にする機能も追加可能だが、今回は名前検索優先
+if nearest_stop_info is not None and target_student_info is None:
+    if nearest_stop_info["route"] in route_options:
+        default_ix = route_options.index(nearest_stop_info["route"])
 
 selected_route = st.sidebar.selectbox("📍 路線選択", route_options, index=default_ix)
 
@@ -279,6 +388,7 @@ else:
 st.markdown(f"""
 <div style="border-left: 5px solid {header_color}; padding-left: 15px; margin-bottom: 10px;">
     <h1 style='margin:0; font-size: 28px;'>{header_icon} 運行管理 <small style="color:gray;">({header_text})</small></h1>
+    <span style="background-color: #eee; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">設定: {schedule_mode}</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -291,8 +401,10 @@ if target_student_info is not None:
     t_to = s_stop_info.iloc[0].get("time_to", "-") if not s_stop_info.empty else "-"
     t_from = s_stop_info.iloc[0].get("time_from", "-") if not s_stop_info.empty else "-"
     
+    dept_info = f" ({target_student_info['department']})" if "department" in target_student_info and target_student_info['department'] else ""
+    
     st.info(f"""
-    **👤 生徒詳細: {target_student_info['name']} さん**
+    **👤 生徒詳細: {target_student_info['name']} さん{dept_info}**
     📍 **{target_student_info['route']}** - **{target_student_info['stop_name']}** (登録区分: {target_student_info['direction']})
     
     | ☀️ 行き (登校) | 🌙 帰り (下校) |
@@ -300,10 +412,27 @@ if target_student_info is not None:
     | ⏰ **{t_to}** | ⏰ **{t_from}** |
     """)
 
+# ★★★ 最寄りバス停カード（検索時のみ表示） ★★★
+if nearest_stop_info is not None:
+    n_route = nearest_stop_info["route"]
+    n_stop = nearest_stop_info["stop_name"]
+    n_dist = int(nearest_stop_info["distance"])
+    st.success(f"""
+    **🏠 住所検索結果: 最寄りバス停**
+    📍 **{n_stop}** ({n_route}) まで **約{n_dist}m**
+    """)
+
 # 地図設定
 valid_stops = stops_df.dropna(subset=["lat", "lng"])
 
-if target_student_info is not None:
+# 中心の決定優先順位: 
+# 1. 住所検索結果があればそこ
+# 2. 生徒選択されていればそのバス停
+# 3. なければ全体
+if search_coords is not None:
+    center_lat, center_lng = search_coords
+    zoom_start = 16
+elif target_student_info is not None:
     target_stop = stops_df[
         (stops_df["route"] == target_student_info["route"]) & 
         (stops_df["stop_name"] == target_student_info["stop_name"])
@@ -333,7 +462,7 @@ m = folium.Map(
     scrollWheelZoom=False
 )
 
-# 🆕 全画面表示ボタン
+# 全画面表示ボタン
 Fullscreen(
     position="topright",
     title="全画面表示",
@@ -341,58 +470,80 @@ Fullscreen(
     force_separate_button=True
 ).add_to(m)
 
-# -----------------------------------------------------------------------------
-# 🆕 複数JSON読み込み機能 (通常、時差、高等部)
-# -----------------------------------------------------------------------------
-# 読み込みたいJSONファイルリスト
-target_geojson_files = [
-    "data/routes.geojson",        # 通常便
-    "data/routes_jisa.geojson",   # 時差便
-    "data/routes_kotobu.geojson"  # 高等部時差便
-]
+# 📍 住所検索地点のマーカー
+if search_coords is not None:
+    folium.Marker(
+        location=search_coords,
+        icon=folium.Icon(color="green", icon="home", prefix="fa"),
+        tooltip="検索した住所"
+    ).add_to(m)
+    # 最寄りバス停へのライン
+    if nearest_stop_info is not None:
+        folium.PolyLine(
+            locations=[search_coords, (nearest_stop_info["lat"], nearest_stop_info["lng"])],
+            color="blue",
+            weight=2,
+            dash_array="5, 5",
+            tooltip=f"約{int(nearest_stop_info['distance'])}m"
+        ).add_to(m)
 
-# ループ処理で全て読み込み
-for geojson_path in target_geojson_files:
-    if os.path.exists(geojson_path):
-        try:
-            with open(geojson_path, "r", encoding="utf-8") as f:
-                geojson_data = json.load(f)
+# -----------------------------------------------------------------------------
+# 📍 路線図 (JSON)
+# -----------------------------------------------------------------------------
+if os.path.exists(geojson_file_path):
+    try:
+        with open(geojson_file_path, "r", encoding="utf-8") as f:
+            geojson_data = json.load(f)
+        
+        if "features" in geojson_data:
+            for feature in geojson_data["features"]:
+                if "properties" not in feature:
+                    feature["properties"] = {}
+                if "name" not in feature["properties"]:
+                    feature["properties"]["name"] = "不明"
+
+        def style_function(feature):
+            props = feature.get('properties', {})
+            r_name = "不明"
             
-            if "features" in geojson_data:
-                for feature in geojson_data["features"]:
-                    if "properties" not in feature:
-                        feature["properties"] = {}
-                    # nameキーが無ければ初期値
-                    if "name" not in feature["properties"]:
-                        feature["properties"]["name"] = "不明"
-
-            def style_function(feature):
-                props = feature.get('properties', {})
-                r_name = "不明"
-                
-                # 1. "name"キーがあればそれを使う
-                if "name" in props and props["name"] != "不明":
-                    r_name = props["name"]
+            # JSONの名前特定
+            if "name" in props and props["name"] != "不明":
+                r_name = props["name"]
+            else:
+                for key in props.keys():
+                    if key in ROUTE_COLORS:
+                        r_name = key
+                        break
+            
+            # 表示判定ロジック
+            is_active = False
+            
+            if r_name == selected_route:
+                is_active = True
+            elif selected_route != "すべて表示" and r_name.startswith(selected_route):
+                if "（登校）" in r_name:
+                    if is_to_school or is_all_mode: is_active = True
+                elif "（下校）" in r_name:
+                    if is_from_school or is_all_mode: is_active = True
+            elif selected_route == "すべて表示":
+                if "（登校）" in r_name:
+                    if is_to_school or is_all_mode: is_active = True
+                elif "（下校）" in r_name:
+                    if is_from_school or is_all_mode: is_active = True
                 else:
-                    # 2. キー自体が名前になっている場合の対応
-                    for key in props.keys():
-                        if key in ROUTE_COLORS:
-                            r_name = key
-                            break
-                
-                # 選択中の路線と一致すれば強調、すべて表示なら全部表示
-                is_active = (selected_route == "すべて表示") or (selected_route == r_name)
-                
-                return {
-                    'color': ROUTE_COLORS.get(r_name, DEFAULT_COLOR),
-                    'weight': 6 if is_active else 3,
-                    'opacity': 0.9 if is_active else 0.4
-                }
+                    is_active = True
 
-            folium.GeoJson(geojson_data, style_function=style_function).add_to(m)
-        except Exception:
-            # 読み込みエラー時は無視して次へ
-            pass
+            line_color = ROUTE_COLORS.get(r_name, ROUTE_COLORS.get(selected_route, DEFAULT_COLOR))
+
+            return {
+                'color': line_color,
+                'weight': 6 if is_active else 0,
+                'opacity': 0.9 if is_active else 0
+            }
+
+        folium.GeoJson(geojson_data, style_function=style_function).add_to(m)
+    except Exception:
+        pass
 
 # 📍 バス停ピン
 for _, row in stops_df.iterrows():
@@ -404,13 +555,22 @@ for _, row in stops_df.iterrows():
     
     is_route_selected = (selected_route == "すべて表示") or (selected_route == r_name)
     is_target_stop = False
+    is_nearest = False
     
+    # ターゲット生徒のバス停判定
     if target_student_info is not None:
         if target_student_info["route"] == r_name and target_student_info["stop_name"] == s_name:
             is_target_stop = True
+            
+    # 最寄りバス停判定
+    if nearest_stop_info is not None:
+        if nearest_stop_info["route"] == r_name and nearest_stop_info["stop_name"] == s_name:
+            is_nearest = True
 
     if is_target_stop:
         icon_color = "#FF0000"; radius = 12; line_weight = 3; fill_opacity = 1.0; z_index = 1000
+    elif is_nearest:
+        icon_color = "green"; radius = 10; line_weight = 3; fill_opacity = 1.0; z_index = 900
     elif is_route_selected:
         icon_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR); radius = 7; line_weight = 1; fill_opacity = 0.9; z_index = 0
     else:
@@ -448,7 +608,7 @@ for _, row in stops_df.iterrows():
     folium.CircleMarker(
         location=[row["lat"], row["lng"]],
         radius=radius,
-        color="white" if is_target_stop else icon_color,
+        color="white" if (is_target_stop or is_nearest) else icon_color,
         weight=line_weight,
         fill=True,
         fill_color=icon_color,
@@ -462,6 +622,12 @@ for _, row in stops_df.iterrows():
             location=[row["lat"], row["lng"]],
             icon=folium.Icon(color="red", icon="user", prefix="fa"),
             tooltip=f"{target_student_info['name']} さん"
+        ).add_to(m)
+    elif is_nearest:
+         folium.Marker(
+            location=[row["lat"], row["lng"]],
+            icon=folium.Icon(color="green", icon="info-sign", prefix="fa"),
+            tooltip="最寄りバス停"
         ).add_to(m)
 
 # 地図表示
@@ -506,12 +672,17 @@ for r_name in target_routes:
             filtered = students_at_stop[students_at_stop["direction"].str.contains(target_str, na=False)]
             students_list_str = filtered["name"].tolist()
             
+        # ターゲット生徒ハイライト
         display_stop = s_name
         if target_student_info is not None and target_student_info["stop_name"] == s_name and target_student_info["route"] == r_name:
             display_stop = f"🔴 {s_name}"
             target_name = target_student_info["name"]
             students_list_str = [f"**{s}**" if target_name in s else s for s in students_list_str]
-            
+        
+        # 最寄りバス停ハイライト
+        if nearest_stop_info is not None and nearest_stop_info["stop_name"] == s_name and nearest_stop_info["route"] == r_name:
+             display_stop = f"🟢 {s_name} (最寄り)"
+
         final_student_str = "、".join(students_list_str)
         
         row_data = {"バス停名": display_stop}
@@ -581,17 +752,24 @@ if selected_route != "すべて表示":
 
     if not roster_df.empty:
         display_cols = ["name", "stop_name", "direction"]
+        if "department" in roster_df.columns:
+            display_cols.insert(1, "department")
+
         roster_display = roster_df[display_cols]
         
+        col_config = {
+            "name": st.column_config.TextColumn("👤 生徒名", width="medium"),
+            "stop_name": st.column_config.TextColumn("🚏 利用バス停", width="medium"),
+            "direction": st.column_config.TextColumn("↔️ 区分", width="small"),
+        }
+        if "department" in roster_df.columns:
+             col_config["department"] = st.column_config.TextColumn("🎓 学部", width="small")
+
         st.dataframe(
             roster_display,
             hide_index=True,
             use_container_width=True,
-            column_config={
-                "name": st.column_config.TextColumn("👤 生徒名", width="medium"),
-                "stop_name": st.column_config.TextColumn("🚏 利用バス停", width="medium"),
-                "direction": st.column_config.TextColumn("↔️ 区分", width="small"),
-            }
+            column_config=col_config
         )
     else:
         st.info("この条件での利用者はいません。")
