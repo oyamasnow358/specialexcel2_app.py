@@ -16,47 +16,35 @@ from google.oauth2.service_account import Credentials
 PASSWORD = st.secrets.get("app_password", "bass")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
-# 🎨 12便対応・配色設定
+# 🎨 配色設定
+# JSONのキー（"西原便", "美園便（登校）"など）と一致させました
 ROUTE_COLORS = {
-    # --- 数字の便名 ---
-    "1便": "#E69F00", 
-    "2便": "#56B4E9", 
-    "3便": "#009E73", 
-    "4便": "#F0E442",
-    "5便": "#0072B2", 
-    "6便": "#D55E00", 
-    "7便": "#CC79A7", 
-    "8便": "#999999",
-    "9便": "#882255", 
-    "10便": "#AA4499", 
-    "11便": "#332288", 
-    "12便": "#DDCC77",
+    # --- 漢字名称 (JSON/CSV用) ---
+    "西原便": "#56B4E9",    # 水色
+    "諏訪便": "#009E73",    # 緑
+    "加倉便": "#F0E442",    # 黄色
+    "小溝便": "#0072B2",    # 青
+    "東岩槻便": "#CC79A7",  # ピンク
+    "井沼便": "#AA4499",    # 紫
 
-    # --- 名前付きの便名 (カッコなし/あり 両対応) ---
-    "西原便": "#56B4E9", 
-    "諏訪便": "#009E73", 
-    "加倉便": "#F0E442",
-    "小溝便": "#0072B2", 
-    "東岩槻便": "#CC79A7", 
-    
-    # 府内便
-    "府内便": "#882255",
+    # --- 府内・美園 (カッコあり・なし両対応) ---
+    "府内便": "#882255",          # ワインレッド
     "府内便（登校）": "#882255",
-    "府内便（下校）": "#882255", 
+    "府内便（下校）": "#882255",
     
-    "井沼便": "#AA4499", 
-    
-    # 美園便
-    "美園便": "#332288",
+    "美園便": "#332288",          # 紺色
     "美園便（登校）": "#332288",
-    "美園便（下校）": "#332288", 
+    "美園便（下校）": "#332288",
 
-    # --- 旧コース名称 ---
+    # --- その他・予備 (数字や旧コース名) ---
+    "1便": "#E69F00", "2便": "#56B4E9", "3便": "#009E73", "4便": "#F0E442",
+    "5便": "#0072B2", "6便": "#D55E00", "7便": "#CC79A7", "8便": "#999999",
+    "9便": "#882255", "10便": "#AA4499", "11便": "#332288", "12便": "#DDCC77",
     "Aコース": "#E69F00", "Bコース": "#56B4E9", "Cコース": "#009E73", "Dコース": "#F0E442",
     "Eコース": "#0072B2", "Fコース": "#D55E00", "Gコース": "#CC79A7", "Hコース": "#999999"
 }
 
-DEFAULT_COLOR = "#333333"
+DEFAULT_COLOR = "#333333" # 黒（不明な場合）
 
 def check_password():
     if "logged_in" not in st.session_state:
@@ -307,7 +295,6 @@ if target_student_info is not None:
     """)
 
 # 地図設定
-# 緯度経度が有効なデータのみで中心点を計算する（エラー回避）
 valid_stops = stops_df.dropna(subset=["lat", "lng"])
 
 if target_student_info is not None:
@@ -319,7 +306,6 @@ if target_student_info is not None:
         center_lat, center_lng = target_stop.iloc[0]["lat"], target_stop.iloc[0]["lng"]
         zoom_start = 16
     else:
-        # ターゲットの座標がない場合は全体の中心
         if not valid_stops.empty:
             center_lat, center_lng = valid_stops["lat"].mean(), valid_stops["lng"].mean()
         else:
@@ -333,7 +319,7 @@ else:
         center_lat, center_lng = 35.6895, 139.6917
     zoom_start = 14
 
-# マップ設定 (スクロールズーム無効化)
+# マップ設定
 m = folium.Map(
     location=[center_lat, center_lng], 
     zoom_start=zoom_start, 
@@ -341,7 +327,7 @@ m = folium.Map(
     scrollWheelZoom=False
 )
 
-# 🆕 全画面表示ボタンを追加
+# 🆕 全画面表示ボタン
 Fullscreen(
     position="topright",
     title="全画面表示",
@@ -349,7 +335,7 @@ Fullscreen(
     force_separate_button=True
 ).add_to(m)
 
-# 📍 路線図
+# 📍 路線図 (JSONのキーから名前を判定するように修正)
 geojson_path = "data/routes.geojson"
 if os.path.exists(geojson_path):
     try:
@@ -360,12 +346,27 @@ if os.path.exists(geojson_path):
             for feature in geojson_data["features"]:
                 if "properties" not in feature:
                     feature["properties"] = {}
+                # 名前がない場合、不明をセットしておく
                 if "name" not in feature["properties"]:
                     feature["properties"]["name"] = "不明"
 
         def style_function(feature):
-            r_name = feature.get('properties', {}).get('name', '不明')
+            props = feature.get('properties', {})
+            r_name = "不明"
+            
+            # 1. "name"キーがあればそれを使う
+            if "name" in props and props["name"] != "不明":
+                r_name = props["name"]
+            else:
+                # 2. キー自体が名前になっている場合（JSONの仕様対応）
+                # ROUTE_COLORS に登録されている名前がキーに含まれていればそれを採用
+                for key in props.keys():
+                    if key in ROUTE_COLORS:
+                        r_name = key
+                        break
+            
             is_active = (selected_route == "すべて表示") or (selected_route == r_name)
+            
             return {
                 'color': ROUTE_COLORS.get(r_name, DEFAULT_COLOR),
                 'weight': 6 if is_active else 3,
@@ -378,7 +379,6 @@ if os.path.exists(geojson_path):
 
 # 📍 バス停ピン
 for _, row in stops_df.iterrows():
-    # 【エラー修正】緯度または経度がNaN(空データ)の場合はスキップする
     if pd.isna(row["lat"]) or pd.isna(row["lng"]):
         continue
 
@@ -401,28 +401,20 @@ for _, row in stops_df.iterrows():
     
     t_display = f"行き:{row.get('time_to','-')} / 帰り:{row.get('time_from','-')}"
     
-    # -----------------------------------------------------
-    # 🆕 ポップアップ用 生徒リスト作成 (モード依存)
-    # -----------------------------------------------------
+    # 生徒リスト作成
     students_at_stop_map = students_df[
         (students_df["route"] == r_name) & 
         (students_df["stop_name"] == s_name)
     ]
     
-    # モードによる絞り込み
     if is_to_school:
         students_at_stop_map = students_at_stop_map[students_at_stop_map["direction"].str.contains("登校", na=False)]
     elif is_from_school:
         students_at_stop_map = students_at_stop_map[students_at_stop_map["direction"].str.contains("下校", na=False)]
     
-    # リスト文字列化
     s_names_list = students_at_stop_map["name"].tolist()
-    if s_names_list:
-        s_names_str = "、".join(s_names_list)
-    else:
-        s_names_str = "(なし)"
+    s_names_str = "、".join(s_names_list) if s_names_list else "(なし)"
 
-    # ポップアップHTML構築
     popup_html = f"""
     <div style="font-family:sans-serif; width:220px;">
         <h4 style="margin:0; color:{ROUTE_COLORS.get(r_name, 'black')};">{s_name}</h4>
@@ -455,7 +447,7 @@ for _, row in stops_df.iterrows():
             tooltip=f"{target_student_info['name']} さん"
         ).add_to(m)
 
-# 地図表示 (高さは500pxに固定)
+# 地図表示
 with st.expander("🗺️ 運行マップ (クリックで開閉)", expanded=True):
     st_folium(m, use_container_width=True, height=500)
 
@@ -497,7 +489,6 @@ for r_name in target_routes:
             filtered = students_at_stop[students_at_stop["direction"].str.contains(target_str, na=False)]
             students_list_str = filtered["name"].tolist()
             
-        # ターゲット生徒ハイライト
         display_stop = s_name
         if target_student_info is not None and target_student_info["stop_name"] == s_name and target_student_info["route"] == r_name:
             display_stop = f"🔴 {s_name}"
@@ -554,31 +545,23 @@ if selected_route != "すべて表示":
     st.markdown("---")
     st.subheader(f"👥 {selected_route} 利用生徒名簿 (バス停順)")
     
-    # 1. その路線の生徒を抽出
     roster_df = students_df[students_df["route"] == selected_route].copy()
     
-    # 2. モードによる絞り込み
     if is_to_school:
         roster_df = roster_df[roster_df["direction"].str.contains("登校", na=False)]
     elif is_from_school:
         roster_df = roster_df[roster_df["direction"].str.contains("下校", na=False)]
-    # 全て表示の場合は絞り込まない
 
-    # 3. バス停順に並び替えるためのマージ処理
-    # stop_name をキーにして sequence を結合する
     route_stops_order = stops_df[stops_df["route"] == selected_route][["stop_name", "sequence"]]
     
     if not route_stops_order.empty and not roster_df.empty:
-        # マージ
         roster_df = pd.merge(roster_df, route_stops_order, on="stop_name", how="left")
         
-        # ソート (sequence順、同じバス停なら名前順)
         if "sequence" in roster_df.columns:
             roster_df = roster_df.sort_values(by=["sequence", "name"])
         else:
             roster_df = roster_df.sort_values(by="name")
 
-    # 4. 表示用データ整理
     if not roster_df.empty:
         display_cols = ["name", "stop_name", "direction"]
         roster_display = roster_df[display_cols]
