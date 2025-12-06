@@ -57,6 +57,7 @@ ROUTE_COLORS = {
     "Eコース": "#0072B2", "Fコース": "#D55E00", "Gコース": "#CC79A7", "Hコース": "#999999"
 }
 
+
 DEFAULT_COLOR = "#333333"
 
 def check_password():
