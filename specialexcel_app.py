@@ -6,9 +6,13 @@ from streamlit_folium import st_folium
 import json
 import os
 
-# 🆕 住所検索・距離計算用ライブラリ
-from geopy.geocoders import Nominatim
-from geopy.distance import geodesic
+# 🆕 住所検索・距離計算用ライブラリ (エラー回避の読み込み処理)
+try:
+    from geopy.geocoders import Nominatim
+    from geopy.distance import geodesic
+    HAS_GEOPY = True
+except ImportError:
+    HAS_GEOPY = False
 
 # Google API 関連
 from googleapiclient.discovery import build
@@ -41,7 +45,6 @@ ROUTE_COLORS = {
     "府内便": "#882255",          # ワインレッド
     "府内便（登校）": "#882255",
     "府内便（下校）": "#882255",
-    
     # --- ココから時差便 ---
     "小中蓮田循環便": "#FF0000",
     "小中岩槻中央便": "#F0E442",
@@ -192,7 +195,6 @@ st.sidebar.markdown("---")
 # -----------------------------------------------------
 
 # (A) バス停データのフィルタリング (CSVの schedule_type 列と対応)
-# CSV上の値: "通常", "時差", "高等部" と想定してマッピングします
 target_schedule_type = "通常"
 if schedule_mode == "小中時差便":
     target_schedule_type = "時差"
@@ -217,7 +219,6 @@ else: # 高時差便
     src_route_col = "route_kotobu"
     src_stop_col = "stop_kotobu"
 
-# 列マッピング実行
 if src_route_col in students_df.columns and src_stop_col in students_df.columns:
     students_df["route"] = students_df[src_route_col]
     students_df["stop_name"] = students_df[src_stop_col]
@@ -245,46 +246,65 @@ is_from_school = (mode_selection == "🌙 下校 (帰り)")
 is_all_mode = (mode_selection == "🔄 すべて (全体)")
 
 target_student_info = None
-search_coords = None  # 住所検索結果の座標
-nearest_stop_info = None # 最寄りバス停情報
+
+# 【修正】セッションステートで検索結果を保持するための初期化
+if "search_results_df" not in st.session_state:
+    st.session_state["search_results_df"] = None
+if "search_coords" not in st.session_state:
+    st.session_state["search_coords"] = None
 
 # -----------------------------------------------------
-# 🆕 住所で最寄りバス停検索機能
+# 🆕 住所で最寄りバス停検索機能 (複数表示対応・状態保持対応)
 # -----------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏠 住所でバス停検索")
 input_address = st.sidebar.text_input("住所を入力", placeholder="例: 埼玉県さいたま市...")
 
 if st.sidebar.button("最寄りバス停を探す"):
-    if input_address:
+    if not HAS_GEOPY:
+        st.sidebar.error("⚠️ エラー: 'geopy' ライブラリが見つかりません。")
+    elif input_address:
         geolocator = Nominatim(user_agent="bus_route_app_v1")
         try:
             location = geolocator.geocode(input_address)
             if location:
-                search_coords = (location.latitude, location.longitude)
+                # 検索した座標
+                current_search_coords = (location.latitude, location.longitude)
+                st.session_state["search_coords"] = current_search_coords
                 
                 # 最寄りバス停計算ロジック
-                # 現在フィルタリングされている stops_df (選択中のスケジュール) から探す
                 valid_stops_for_search = stops_df.dropna(subset=["lat", "lng"]).copy()
                 
                 if not valid_stops_for_search.empty:
                     # 距離計算
                     valid_stops_for_search["distance"] = valid_stops_for_search.apply(
-                        lambda row: geodesic(search_coords, (row["lat"], row["lng"])).meters, 
+                        lambda row: geodesic(current_search_coords, (row["lat"], row["lng"])).meters, 
                         axis=1
                     )
-                    # 最短距離の行を取得
-                    nearest_row = valid_stops_for_search.loc[valid_stops_for_search["distance"].idxmin()]
-                    nearest_stop_info = nearest_row
+                    # 【修正】距離順に並び替えて、上位3件を取得
+                    top3_stops = valid_stops_for_search.sort_values("distance").head(3)
                     
-                    st.sidebar.success(f"📍 最寄り: {nearest_row['stop_name']}")
-                    st.sidebar.info(f"距離: 約{int(nearest_row['distance'])}m\n路線: {nearest_row['route']}")
+                    # 結果をセッションステートに保存
+                    st.session_state["search_results_df"] = top3_stops
                 else:
                     st.sidebar.warning("現在選択中のスケジュールのバス停データがありません。")
+                    st.session_state["search_results_df"] = None
             else:
                 st.sidebar.error("住所が見つかりませんでした。詳細に入力してください。")
         except Exception as e:
             st.sidebar.error(f"検索エラー: {e}")
+
+# 検索結果の表示 (セッションステートから読み出し)
+if st.session_state["search_results_df"] is not None and not st.session_state["search_results_df"].empty:
+    st.sidebar.success("📍 **最寄りバス停 (近い順)**")
+    
+    # 上位3つを表示
+    for i, (idx, row) in enumerate(st.session_state["search_results_df"].iterrows()):
+        dist = int(row["distance"])
+        rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else ""
+        st.sidebar.info(f"{rank_icon} **{row['stop_name']}**\n路線: {row['route']} (約{dist}m)")
+
+# -----------------------------------------------------
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 生徒検索・指定")
@@ -326,10 +346,11 @@ default_ix = 0
 if target_student_info is not None:
     if target_student_info["route"] in route_options:
         default_ix = route_options.index(target_student_info["route"])
-# 最寄り検索された場合、その路線を選択状態にする機能も追加可能だが、今回は名前検索優先
-if nearest_stop_info is not None and target_student_info is None:
-    if nearest_stop_info["route"] in route_options:
-        default_ix = route_options.index(nearest_stop_info["route"])
+# 最寄り検索された場合、一番近いバス停の路線をデフォルトにする
+elif st.session_state["search_results_df"] is not None:
+    nearest_one = st.session_state["search_results_df"].iloc[0]
+    if nearest_one["route"] in route_options:
+        default_ix = route_options.index(nearest_one["route"])
 
 selected_route = st.sidebar.selectbox("📍 路線選択", route_options, index=default_ix)
 
@@ -412,13 +433,11 @@ if target_student_info is not None:
     """)
 
 # ★★★ 最寄りバス停カード（検索時のみ表示） ★★★
-if nearest_stop_info is not None:
-    n_route = nearest_stop_info["route"]
-    n_stop = nearest_stop_info["stop_name"]
-    n_dist = int(nearest_stop_info["distance"])
+if st.session_state["search_results_df"] is not None and not st.session_state["search_results_df"].empty:
+    nearest_row = st.session_state["search_results_df"].iloc[0]
     st.success(f"""
-    **🏠 住所検索結果: 最寄りバス停**
-    📍 **{n_stop}** ({n_route}) まで **約{n_dist}m**
+    **🏠 住所検索結果: 一番近いバス停**
+    📍 **{nearest_row['stop_name']}** ({nearest_row['route']}) まで **約{int(nearest_row['distance'])}m**
     """)
 
 # 地図設定
@@ -428,9 +447,9 @@ valid_stops = stops_df.dropna(subset=["lat", "lng"])
 # 1. 住所検索結果があればそこ
 # 2. 生徒選択されていればそのバス停
 # 3. なければ全体
-if search_coords is not None:
-    center_lat, center_lng = search_coords
-    zoom_start = 16
+if st.session_state["search_coords"] is not None:
+    center_lat, center_lng = st.session_state["search_coords"]
+    zoom_start = 15
 elif target_student_info is not None:
     target_stop = stops_df[
         (stops_df["route"] == target_student_info["route"]) & 
@@ -469,21 +488,25 @@ Fullscreen(
     force_separate_button=True
 ).add_to(m)
 
-# 📍 住所検索地点のマーカー
-if search_coords is not None:
+# 📍 住所検索地点のマーカー & 最寄りバス停への線
+if st.session_state["search_coords"] is not None:
+    # 検索地点ピン
     folium.Marker(
-        location=search_coords,
+        location=st.session_state["search_coords"],
         icon=folium.Icon(color="green", icon="home", prefix="fa"),
         tooltip="検索した住所"
     ).add_to(m)
-    # 最寄りバス停へのライン
-    if nearest_stop_info is not None:
+    
+    # 検索結果（複数）への線とマーカー
+    if st.session_state["search_results_df"] is not None:
+        # 最も近いバス停へは青い線を引く
+        nearest_row = st.session_state["search_results_df"].iloc[0]
         folium.PolyLine(
-            locations=[search_coords, (nearest_stop_info["lat"], nearest_stop_info["lng"])],
+            locations=[st.session_state["search_coords"], (nearest_row["lat"], nearest_row["lng"])],
             color="blue",
             weight=2,
             dash_array="5, 5",
-            tooltip=f"約{int(nearest_stop_info['distance'])}m"
+            tooltip=f"約{int(nearest_row['distance'])}m"
         ).add_to(m)
 
 # -----------------------------------------------------------------------------
@@ -554,22 +577,35 @@ for _, row in stops_df.iterrows():
     
     is_route_selected = (selected_route == "すべて表示") or (selected_route == r_name)
     is_target_stop = False
-    is_nearest = False
+    
+    # 検索結果に含まれるバス停かどうか（ランク1位は特別な色、2,3位は少し目立つ色）
+    search_rank = None # None, 0(1位), 1(2位), 2(3位)
+    if st.session_state["search_results_df"] is not None:
+        # routeとstop_nameが一致するものを探す
+        matches = st.session_state["search_results_df"][
+            (st.session_state["search_results_df"]["route"] == r_name) & 
+            (st.session_state["search_results_df"]["stop_name"] == s_name)
+        ]
+        if not matches.empty:
+            # 元のDFでのインデックスから順位を判定する（head(3)しているので）
+            # ここでは単純にstop_nameとrouteの一致で判定
+            for i, (idx, res_row) in enumerate(st.session_state["search_results_df"].iterrows()):
+                if res_row["route"] == r_name and res_row["stop_name"] == s_name:
+                    search_rank = i
+                    break
     
     # ターゲット生徒のバス停判定
     if target_student_info is not None:
         if target_student_info["route"] == r_name and target_student_info["stop_name"] == s_name:
             is_target_stop = True
-            
-    # 最寄りバス停判定
-    if nearest_stop_info is not None:
-        if nearest_stop_info["route"] == r_name and nearest_stop_info["stop_name"] == s_name:
-            is_nearest = True
 
+    # アイコン設定
     if is_target_stop:
         icon_color = "#FF0000"; radius = 12; line_weight = 3; fill_opacity = 1.0; z_index = 1000
-    elif is_nearest:
+    elif search_rank == 0: # 最寄り1位
         icon_color = "green"; radius = 10; line_weight = 3; fill_opacity = 1.0; z_index = 900
+    elif search_rank is not None: # 最寄り2位, 3位
+        icon_color = "lightgreen"; radius = 8; line_weight = 2; fill_opacity = 1.0; z_index = 800
     elif is_route_selected:
         icon_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR); radius = 7; line_weight = 1; fill_opacity = 0.9; z_index = 0
     else:
@@ -607,7 +643,7 @@ for _, row in stops_df.iterrows():
     folium.CircleMarker(
         location=[row["lat"], row["lng"]],
         radius=radius,
-        color="white" if (is_target_stop or is_nearest) else icon_color,
+        color="white" if (is_target_stop or search_rank is not None) else icon_color,
         weight=line_weight,
         fill=True,
         fill_color=icon_color,
@@ -622,11 +658,11 @@ for _, row in stops_df.iterrows():
             icon=folium.Icon(color="red", icon="user", prefix="fa"),
             tooltip=f"{target_student_info['name']} さん"
         ).add_to(m)
-    elif is_nearest:
+    elif search_rank == 0:
          folium.Marker(
             location=[row["lat"], row["lng"]],
             icon=folium.Icon(color="green", icon="info-sign", prefix="fa"),
-            tooltip="最寄りバス停"
+            tooltip=f"最寄り1位: {s_name}"
         ).add_to(m)
 
 # 地図表示
@@ -678,9 +714,12 @@ for r_name in target_routes:
             target_name = target_student_info["name"]
             students_list_str = [f"**{s}**" if target_name in s else s for s in students_list_str]
         
-        # 最寄りバス停ハイライト
-        if nearest_stop_info is not None and nearest_stop_info["stop_name"] == s_name and nearest_stop_info["route"] == r_name:
-             display_stop = f"🟢 {s_name} (最寄り)"
+        # 最寄りバス停ハイライト (セッションステートにあるリストと照合)
+        if st.session_state["search_results_df"] is not None:
+             for i, (idx, res_row) in enumerate(st.session_state["search_results_df"].iterrows()):
+                 if res_row["stop_name"] == s_name and res_row["route"] == r_name:
+                     rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else ""
+                     display_stop = f"{rank_icon} {s_name} (最寄り{i+1})"
 
         final_student_str = "、".join(students_list_str)
         
