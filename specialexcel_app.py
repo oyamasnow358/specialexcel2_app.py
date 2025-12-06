@@ -5,6 +5,7 @@ from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 import json
 import os
+import unicodedata  # 🆕 全角→半角変換用
 
 # 🆕 住所検索・距離計算用ライブラリ (エラー回避の読み込み処理)
 try:
@@ -247,32 +248,41 @@ is_all_mode = (mode_selection == "🔄 すべて (全体)")
 
 target_student_info = None
 
-# 【修正】セッションステートで検索結果を保持するための初期化
+# セッションステート初期化
 if "search_results_df" not in st.session_state:
     st.session_state["search_results_df"] = None
 if "search_coords" not in st.session_state:
     st.session_state["search_coords"] = None
 
 # -----------------------------------------------------
-# 🆕 住所で最寄りバス停検索機能 (複数表示対応・状態保持対応)
+# 🆕 住所で最寄りバス停検索機能 (全角対応 & 注釈追加)
 # -----------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏠 住所でバス停検索")
-input_address = st.sidebar.text_input("住所を入力", placeholder="例: 埼玉県さいたま市...")
+input_address = st.sidebar.text_input("住所を入力", placeholder="例: 〇〇区〇〇町 3-15")
+st.sidebar.caption("※番地が見つからない場合は「丁目」まで（例: 3丁目）で検索してください。全角数字は自動変換されます。")
 
 if st.sidebar.button("最寄りバス停を探す"):
     if not HAS_GEOPY:
         st.sidebar.error("⚠️ エラー: 'geopy' ライブラリが見つかりません。")
     elif input_address:
+        # 🆕 全角英数字・記号を半角に正規化 (NFKC形式)
+        normalized_address = unicodedata.normalize('NFKC', input_address)
+        
         geolocator = Nominatim(user_agent="bus_route_app_v1")
         try:
-            location = geolocator.geocode(input_address)
+            # 正規化した住所で検索
+            location = geolocator.geocode(normalized_address)
+            
+            # 見つからなかった場合、一応元の入力でも試す（念のため）
+            if not location and normalized_address != input_address:
+                location = geolocator.geocode(input_address)
+                
             if location:
-                # 検索した座標
                 current_search_coords = (location.latitude, location.longitude)
                 st.session_state["search_coords"] = current_search_coords
                 
-                # 最寄りバス停計算ロジック
+                # 最寄りバス停計算
                 valid_stops_for_search = stops_df.dropna(subset=["lat", "lng"]).copy()
                 
                 if not valid_stops_for_search.empty:
@@ -281,24 +291,20 @@ if st.sidebar.button("最寄りバス停を探す"):
                         lambda row: geodesic(current_search_coords, (row["lat"], row["lng"])).meters, 
                         axis=1
                     )
-                    # 【修正】距離順に並び替えて、上位3件を取得
+                    # 近い順に上位3件を取得
                     top3_stops = valid_stops_for_search.sort_values("distance").head(3)
-                    
-                    # 結果をセッションステートに保存
                     st.session_state["search_results_df"] = top3_stops
                 else:
                     st.sidebar.warning("現在選択中のスケジュールのバス停データがありません。")
                     st.session_state["search_results_df"] = None
             else:
-                st.sidebar.error("住所が見つかりませんでした。詳細に入力してください。")
+                st.sidebar.error("住所が見つかりませんでした。番地を省略して（例: 〇〇町3丁目）再度お試しください。")
         except Exception as e:
             st.sidebar.error(f"検索エラー: {e}")
 
-# 検索結果の表示 (セッションステートから読み出し)
+# 検索結果の表示
 if st.session_state["search_results_df"] is not None and not st.session_state["search_results_df"].empty:
     st.sidebar.success("📍 **最寄りバス停 (近い順)**")
-    
-    # 上位3つを表示
     for i, (idx, row) in enumerate(st.session_state["search_results_df"].iterrows()):
         dist = int(row["distance"])
         rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else ""
@@ -346,7 +352,6 @@ default_ix = 0
 if target_student_info is not None:
     if target_student_info["route"] in route_options:
         default_ix = route_options.index(target_student_info["route"])
-# 最寄り検索された場合、一番近いバス停の路線をデフォルトにする
 elif st.session_state["search_results_df"] is not None:
     nearest_one = st.session_state["search_results_df"].iloc[0]
     if nearest_one["route"] in route_options:
@@ -443,10 +448,6 @@ if st.session_state["search_results_df"] is not None and not st.session_state["s
 # 地図設定
 valid_stops = stops_df.dropna(subset=["lat", "lng"])
 
-# 中心の決定優先順位: 
-# 1. 住所検索結果があればそこ
-# 2. 生徒選択されていればそのバス停
-# 3. なければ全体
 if st.session_state["search_coords"] is not None:
     center_lat, center_lng = st.session_state["search_coords"]
     zoom_start = 15
@@ -490,16 +491,13 @@ Fullscreen(
 
 # 📍 住所検索地点のマーカー & 最寄りバス停への線
 if st.session_state["search_coords"] is not None:
-    # 検索地点ピン
     folium.Marker(
         location=st.session_state["search_coords"],
         icon=folium.Icon(color="green", icon="home", prefix="fa"),
         tooltip="検索した住所"
     ).add_to(m)
     
-    # 検索結果（複数）への線とマーカー
     if st.session_state["search_results_df"] is not None:
-        # 最も近いバス停へは青い線を引く
         nearest_row = st.session_state["search_results_df"].iloc[0]
         folium.PolyLine(
             locations=[st.session_state["search_coords"], (nearest_row["lat"], nearest_row["lng"])],
@@ -528,7 +526,6 @@ if os.path.exists(geojson_file_path):
             props = feature.get('properties', {})
             r_name = "不明"
             
-            # JSONの名前特定
             if "name" in props and props["name"] != "不明":
                 r_name = props["name"]
             else:
@@ -537,7 +534,6 @@ if os.path.exists(geojson_file_path):
                         r_name = key
                         break
             
-            # 表示判定ロジック
             is_active = False
             
             if r_name == selected_route:
@@ -578,33 +574,23 @@ for _, row in stops_df.iterrows():
     is_route_selected = (selected_route == "すべて表示") or (selected_route == r_name)
     is_target_stop = False
     
-    # 検索結果に含まれるバス停かどうか（ランク1位は特別な色、2,3位は少し目立つ色）
-    search_rank = None # None, 0(1位), 1(2位), 2(3位)
+    # 検索順位判定
+    search_rank = None
     if st.session_state["search_results_df"] is not None:
-        # routeとstop_nameが一致するものを探す
-        matches = st.session_state["search_results_df"][
-            (st.session_state["search_results_df"]["route"] == r_name) & 
-            (st.session_state["search_results_df"]["stop_name"] == s_name)
-        ]
-        if not matches.empty:
-            # 元のDFでのインデックスから順位を判定する（head(3)しているので）
-            # ここでは単純にstop_nameとrouteの一致で判定
-            for i, (idx, res_row) in enumerate(st.session_state["search_results_df"].iterrows()):
-                if res_row["route"] == r_name and res_row["stop_name"] == s_name:
-                    search_rank = i
-                    break
+        for i, (idx, res_row) in enumerate(st.session_state["search_results_df"].iterrows()):
+            if res_row["route"] == r_name and res_row["stop_name"] == s_name:
+                search_rank = i
+                break
     
-    # ターゲット生徒のバス停判定
     if target_student_info is not None:
         if target_student_info["route"] == r_name and target_student_info["stop_name"] == s_name:
             is_target_stop = True
 
-    # アイコン設定
     if is_target_stop:
         icon_color = "#FF0000"; radius = 12; line_weight = 3; fill_opacity = 1.0; z_index = 1000
-    elif search_rank == 0: # 最寄り1位
+    elif search_rank == 0:
         icon_color = "green"; radius = 10; line_weight = 3; fill_opacity = 1.0; z_index = 900
-    elif search_rank is not None: # 最寄り2位, 3位
+    elif search_rank is not None:
         icon_color = "lightgreen"; radius = 8; line_weight = 2; fill_opacity = 1.0; z_index = 800
     elif is_route_selected:
         icon_color = ROUTE_COLORS.get(r_name, DEFAULT_COLOR); radius = 7; line_weight = 1; fill_opacity = 0.9; z_index = 0
@@ -613,7 +599,6 @@ for _, row in stops_df.iterrows():
     
     t_display = f"行き:{row.get('time_to','-')} / 帰り:{row.get('time_from','-')}"
     
-    # 生徒リスト作成
     students_at_stop_map = students_df[
         (students_df["route"] == r_name) & 
         (students_df["stop_name"] == s_name)
@@ -707,7 +692,6 @@ for r_name in target_routes:
             filtered = students_at_stop[students_at_stop["direction"].str.contains(target_str, na=False)]
             students_list_str = filtered["name"].tolist()
             
-        # ターゲット生徒ハイライト
         display_stop = s_name
         if target_student_info is not None and target_student_info["stop_name"] == s_name and target_student_info["route"] == r_name:
             display_stop = f"🔴 {s_name}"
