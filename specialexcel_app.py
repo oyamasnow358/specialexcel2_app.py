@@ -22,7 +22,7 @@ from google.oauth2.service_account import Credentials
 # =========================================================
 # 🔐 0. 簡易ログイン & 設定
 # =========================================================
-PASSWORD = st.secrets.get("app_password", "bass")
+PASSWORD = st.secrets.get("app_password", "bus")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # 🎨 配色設定
