@@ -190,6 +190,18 @@ schedule_mode = st.sidebar.selectbox(
     index=0
 )
 
+# 🆕 スケジュール切り替え検知 & 検索結果リセット
+# これにより、通常便で検索した後に時差便に変えた場合などの不整合を防ぎます
+if "current_schedule_mode" not in st.session_state:
+    st.session_state["current_schedule_mode"] = schedule_mode
+
+if st.session_state["current_schedule_mode"] != schedule_mode:
+    # スケジュールが変わったら検索結果をクリア
+    st.session_state["search_results_df"] = None
+    st.session_state["search_coords"] = None
+    st.session_state["current_schedule_mode"] = schedule_mode
+    # ※rerunはせず、このまま新しいデータで描画へ進みます
+
 st.sidebar.markdown("---")
 
 # 1. データ前処理：スケジュールに応じたデータ抽出・変換
@@ -248,7 +260,7 @@ is_all_mode = (mode_selection == "🔄 すべて (全体)")
 
 target_student_info = None
 
-# セッションステート初期化
+# セッションステート初期化 (未定義の場合)
 if "search_results_df" not in st.session_state:
     st.session_state["search_results_df"] = None
 if "search_coords" not in st.session_state:
@@ -564,14 +576,19 @@ if os.path.exists(geojson_file_path):
                     is_active = True
 
             # 🆕 住所検索でヒットした路線がある場合の追加表示ロジック
-            if nearest_route_name and r_name.startswith(nearest_route_name):
-                # 登下校のフィルタリングはモードに従う
-                if "（登校）" in r_name:
-                    if is_to_school or is_all_mode: is_active = True
-                elif "（下校）" in r_name:
-                    if is_from_school or is_all_mode: is_active = True
-                else:
-                    is_active = True
+            # startswithだけでなく、部分一致(in)も含めて相互チェックすることで
+            # 便名が長い場合や微妙な表記揺れ（特に時差便など）に対応
+            if nearest_route_name:
+                n_r = nearest_route_name.strip()
+                r_n = r_name.strip()
+                if (n_r == r_n) or (n_r in r_n) or (r_n in n_r):
+                    # 登下校のフィルタリングはモードに従う
+                    if "（登校）" in r_name:
+                        if is_to_school or is_all_mode: is_active = True
+                    elif "（下校）" in r_name:
+                        if is_from_school or is_all_mode: is_active = True
+                    else:
+                        is_active = True
 
             line_color = ROUTE_COLORS.get(r_name, ROUTE_COLORS.get(selected_route, DEFAULT_COLOR))
 
