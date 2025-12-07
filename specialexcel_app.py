@@ -22,7 +22,7 @@ from google.oauth2.service_account import Credentials
 # =========================================================
 # 🔐 0. 簡易ログイン & 設定
 # =========================================================
-PASSWORD = st.secrets.get("app_password", "bass")
+PASSWORD = st.secrets.get("app_password", "bus")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # 🎨 配色設定
@@ -191,7 +191,6 @@ schedule_mode = st.sidebar.selectbox(
 )
 
 # 🆕 スケジュール切り替え検知 & 検索結果リセット
-# これにより、通常便で検索した後に時差便に変えた場合などの不整合を防ぎます
 if "current_schedule_mode" not in st.session_state:
     st.session_state["current_schedule_mode"] = schedule_mode
 
@@ -200,7 +199,6 @@ if st.session_state["current_schedule_mode"] != schedule_mode:
     st.session_state["search_results_df"] = None
     st.session_state["search_coords"] = None
     st.session_state["current_schedule_mode"] = schedule_mode
-    # ※rerunはせず、このまま新しいデータで描画へ進みます
 
 st.sidebar.markdown("---")
 
@@ -491,11 +489,11 @@ else:
         center_lat, center_lng = 35.6895, 139.6917
     zoom_start = 14
 
-# マップ設定
+# マップ設定 (詳細な情報を表示するためにOpenStreetMapに変更)
 m = folium.Map(
     location=[center_lat, center_lng], 
     zoom_start=zoom_start, 
-    tiles="CartoDB positron",
+    tiles="OpenStreetMap",  # 変更: 詳細な地図情報を表示
     scrollWheelZoom=False
 )
 
@@ -538,24 +536,25 @@ if os.path.exists(geojson_file_path):
         with open(geojson_file_path, "r", encoding="utf-8") as f:
             geojson_data = json.load(f)
         
+        # GeoJSONのプロパティ補完処理 (ツールチップ表示用)
         if "features" in geojson_data:
             for feature in geojson_data["features"]:
                 if "properties" not in feature:
                     feature["properties"] = {}
-                if "name" not in feature["properties"]:
-                    feature["properties"]["name"] = "不明"
+                
+                # 便名の補完 (nameが無い場合、プロパティのキーから推測してセット)
+                props = feature["properties"]
+                if "name" not in props or props["name"] == "不明":
+                    for key in props.keys():
+                        if key in ROUTE_COLORS:
+                            props["name"] = key
+                            break
+                    if "name" not in props:
+                        props["name"] = "不明"
 
         def style_function(feature):
             props = feature.get('properties', {})
-            r_name = "不明"
-            
-            if "name" in props and props["name"] != "不明":
-                r_name = props["name"]
-            else:
-                for key in props.keys():
-                    if key in ROUTE_COLORS:
-                        r_name = key
-                        break
+            r_name = props.get("name", "不明")
             
             is_active = False
             
@@ -576,8 +575,6 @@ if os.path.exists(geojson_file_path):
                     is_active = True
 
             # 🆕 住所検索でヒットした路線がある場合の追加表示ロジック
-            # startswithだけでなく、部分一致(in)も含めて相互チェックすることで
-            # 便名が長い場合や微妙な表記揺れ（特に時差便など）に対応
             if nearest_route_name:
                 n_r = nearest_route_name.strip()
                 r_n = r_name.strip()
@@ -598,7 +595,11 @@ if os.path.exists(geojson_file_path):
                 'opacity': 0.9 if is_active else 0
             }
 
-        folium.GeoJson(geojson_data, style_function=style_function).add_to(m)
+        folium.GeoJson(
+            geojson_data, 
+            style_function=style_function,
+            tooltip=folium.GeoJsonTooltip(fields=["name"], aliases=["便名: "]) # ツールチップ追加
+        ).add_to(m)
     except Exception:
         pass
 
