@@ -22,7 +22,7 @@ from google.oauth2.service_account import Credentials
 # =========================================================
 # 🔐 0. 簡易ログイン & 設定
 # =========================================================
-PASSWORD = st.secrets.get("app_password", "bus")
+PASSWORD = st.secrets.get("app_password", "bass")
 SPREADSHEET_ID = "1yXSXSjYBaV2jt2BNO638Y2YZ6U7rdOCv5ScozlFq_EE"
 
 # 🎨 配色設定
@@ -255,6 +255,15 @@ mode_selection = st.sidebar.radio(
 is_to_school = (mode_selection == "☀️ 登校 (行き)")
 is_from_school = (mode_selection == "🌙 下校 (帰り)")
 is_all_mode = (mode_selection == "🔄 すべて (全体)")
+
+# 🆕 地図スタイルの切り替えボタン
+st.sidebar.markdown("---")
+st.sidebar.subheader("🗺️ 地図設定")
+map_style_selection = st.sidebar.radio(
+    "地図の見た目",
+    ("シンプル (路線強調)", "詳細 (OpenStreetMap)"),
+    index=0
+)
 
 target_student_info = None
 
@@ -489,11 +498,19 @@ else:
         center_lat, center_lng = 35.6895, 139.6917
     zoom_start = 14
 
-# マップ設定 (詳細な情報を表示するためにOpenStreetMapに変更)
+# 🆕 タイル切り替えロジック
+if map_style_selection == "シンプル (路線強調)":
+    # 以前の地図（白黒ベース、道路が薄い）
+    selected_tiles = "CartoDB positron"
+else:
+    # 詳細地図（OpenStreetMap、建物や色が詳しい）
+    selected_tiles = "OpenStreetMap"
+
+# マップ設定
 m = folium.Map(
     location=[center_lat, center_lng], 
     zoom_start=zoom_start, 
-    tiles="OpenStreetMap",  # 変更: 詳細な地図情報を表示
+    tiles=selected_tiles,  # 切り替えたタイルを使用
     scrollWheelZoom=False
 )
 
@@ -558,23 +575,34 @@ if os.path.exists(geojson_file_path):
             
             is_active = False
             
-            # 通常の選択ロジック
-            if r_name == selected_route:
-                is_active = True
-            elif selected_route != "すべて表示" and r_name.startswith(selected_route):
-                if "（登校）" in r_name:
-                    if is_to_school or is_all_mode: is_active = True
-                elif "（下校）" in r_name:
-                    if is_from_school or is_all_mode: is_active = True
-            elif selected_route == "すべて表示":
+            # --- マッチング判定 ---
+            is_hit = False
+            
+            # 1. "すべて表示" の場合
+            if selected_route == "すべて表示":
+                is_hit = True
+            
+            # 2. 個別選択の場合 (表記ゆれを考慮して双方向の部分一致で判定)
+            else:
+                # 空白除去
+                rn = r_name.strip()
+                sr = selected_route.strip()
+                
+                # 完全一致 or 包含関係 (どちらかがどちらかを含んでいればOKとする)
+                if (rn == sr) or (rn in sr) or (sr in rn):
+                    is_hit = True
+            
+            # --- 登下校モードによるフィルタリング ---
+            if is_hit:
                 if "（登校）" in r_name:
                     if is_to_school or is_all_mode: is_active = True
                 elif "（下校）" in r_name:
                     if is_from_school or is_all_mode: is_active = True
                 else:
+                    # （登校/下校）の記載がない便は、常に表示
                     is_active = True
 
-            # 🆕 住所検索でヒットした路線がある場合の追加表示ロジック
+            # --- 住所検索時の特別表示ロジック (既存維持) ---
             if nearest_route_name:
                 n_r = nearest_route_name.strip()
                 r_n = r_name.strip()
