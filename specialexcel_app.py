@@ -5,9 +5,9 @@ from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 import json
 import os
-import unicodedata  # 🆕 全角→半角変換用
+import unicodedata  # 全角→半角変換用
 
-# 🆕 住所検索・距離計算用ライブラリ (エラー回避の読み込み処理)
+# 住所検索・距離計算用ライブラリ (エラー回避の読み込み処理)
 try:
     from geopy.geocoders import Nominatim
     from geopy.distance import geodesic
@@ -309,6 +309,12 @@ if st.session_state["search_results_df"] is not None and not st.session_state["s
         dist = int(row["distance"])
         rank_icon = ["🥇", "🥈", "🥉"][i] if i < 3 else ""
         st.sidebar.info(f"{rank_icon} **{row['stop_name']}**\n路線: {row['route']} (約{dist}m)")
+    
+    # 🆕 検索リセットボタン
+    if st.sidebar.button("住所確認を終了する（リセット）", type="primary"):
+        st.session_state["search_results_df"] = None
+        st.session_state["search_coords"] = None
+        st.rerun()
 
 # -----------------------------------------------------
 
@@ -510,6 +516,11 @@ if st.session_state["search_coords"] is not None:
 # -----------------------------------------------------------------------------
 # 📍 路線図 (JSON)
 # -----------------------------------------------------------------------------
+# 🆕 最寄りバス停の路線名を特定
+nearest_route_name = None
+if st.session_state["search_results_df"] is not None and not st.session_state["search_results_df"].empty:
+    nearest_route_name = st.session_state["search_results_df"].iloc[0]["route"]
+
 if os.path.exists(geojson_file_path):
     try:
         with open(geojson_file_path, "r", encoding="utf-8") as f:
@@ -536,6 +547,7 @@ if os.path.exists(geojson_file_path):
             
             is_active = False
             
+            # 通常の選択ロジック
             if r_name == selected_route:
                 is_active = True
             elif selected_route != "すべて表示" and r_name.startswith(selected_route):
@@ -544,6 +556,16 @@ if os.path.exists(geojson_file_path):
                 elif "（下校）" in r_name:
                     if is_from_school or is_all_mode: is_active = True
             elif selected_route == "すべて表示":
+                if "（登校）" in r_name:
+                    if is_to_school or is_all_mode: is_active = True
+                elif "（下校）" in r_name:
+                    if is_from_school or is_all_mode: is_active = True
+                else:
+                    is_active = True
+
+            # 🆕 住所検索でヒットした路線がある場合の追加表示ロジック
+            if nearest_route_name and r_name.startswith(nearest_route_name):
+                # 登下校のフィルタリングはモードに従う
                 if "（登校）" in r_name:
                     if is_to_school or is_all_mode: is_active = True
                 elif "（下校）" in r_name:
