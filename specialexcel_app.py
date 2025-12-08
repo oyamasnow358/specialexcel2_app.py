@@ -8,7 +8,7 @@ import os
 import unicodedata
 import requests
 import xml.etree.ElementTree as ET
-import re  # 🆕 正規表現用（住所の数字処理に追加）
+import re
 
 # 住所検索・距離計算用ライブラリ
 try:
@@ -195,62 +195,72 @@ if "search_results_df" not in st.session_state: st.session_state["search_results
 if "search_coords" not in st.session_state: st.session_state["search_coords"] = None
 
 # -----------------------------------------------------
-# 🆕 住所で最寄りバス停検索機能 (改良版: 自動補完)
+# 🆕 住所で最寄りバス停検索機能 (最強版: 国土地理院API + 自動フォールバック)
 # -----------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏠 住所でバス停検索")
 input_address = st.sidebar.text_input("住所を入力", placeholder="例: 〇〇区〇〇町 3-15")
-st.sidebar.caption("※番地が見つからない場合は「町名」までで検索してください。")
+st.sidebar.caption("※番地が見つからない場合は自動で周辺を表示します。")
 
-def search_address_robust(address_str):
+def search_address_ultimate(address_str):
     """
-    1. そのまま検索
-    2. 末尾が数字なら「丁目」をつけて検索 (例: 深作3 -> 深作3丁目)
-    3. ハイフンがあれば「丁目」に置換して検索 (例: 深作3-15 -> 深作3丁目15)
+    1. 国土地理院API (最強・あいまい検索可)
+    2. 農研機構API
+    3. Geocoding.jp
+    4. 最後の手段: 数字を削除して町名だけで検索
     """
-    # 基本の正規化
-    normalized_base = unicodedata.normalize('NFKC', address_str)
+    normalized_addr = unicodedata.normalize('NFKC', address_str)
     
-    # 検索候補リスト作成
-    candidates = [normalized_base]
+    # 検索リスト（そのままの住所 と、数字を除去した町名のみ）
+    search_queries = [normalized_addr]
     
-    # 候補2: 数字で終わる場合、「丁目」を足してみる
-    if re.search(r'\d+$', normalized_base):
-        candidates.append(normalized_base + "丁目")
-        
-    # 候補3: ハイフンがある場合、「丁目」に変換してみる
-    if "-" in normalized_base:
-        # 最初のハイフンを丁目に変えてみる簡易対策
-        candidates.append(normalized_base.replace("-", "丁目", 1))
+    # 数字除去バージョンの作成 (例: 深作3 -> 深作)
+    # これにより「3番地」が見つからなくても「深作」の場所を返せるようにする
+    addr_without_digits = re.sub(r'\d+[-]*\d*', '', normalized_addr).strip()
+    if addr_without_digits and addr_without_digits != normalized_addr:
+        search_queries.append(addr_without_digits)
 
-    # 順番にAPIで試行
-    for search_term in candidates:
-        # --- A. 農研機構 API ---
+    for query in search_queries:
+        # --- 1. 国土地理院 API (Msearch) ---
+        # 日本政府提供。部分一致に強く、座標を返しやすい
         try:
-            url1 = "https://aginfo.cgk.affrc.go.jp/ws/geocode/search"
-            headers = {"User-Agent": "school_bus_app_v4"}
-            res1 = requests.get(url1, params={"addr": search_term}, headers=headers, timeout=10)
-            if res1.status_code == 200:
-                data = res1.json()
+            url_gsi = "https://msearch.gsi.go.jp/address-search/AddressSearch"
+            res_gsi = requests.get(url_gsi, params={"q": query}, timeout=10)
+            if res_gsi.status_code == 200:
+                data = res_gsi.json()
+                if len(data) > 0:
+                    # 一番上の候補を返す
+                    coords = data[0]["geometry"]["coordinates"] # [lon, lat]
+                    return float(coords[1]), float(coords[0]), "国土地理院"
+        except Exception:
+            pass
+
+        # --- 2. 農研機構 API ---
+        try:
+            url_naro = "https://aginfo.cgk.affrc.go.jp/ws/geocode/search"
+            headers = {"User-Agent": "school_bus_app_v5"}
+            res_naro = requests.get(url_naro, params={"addr": query}, headers=headers, timeout=10)
+            if res_naro.status_code == 200:
+                data = res_naro.json()
                 if data.get("result") and len(data["result"]) > 0:
                     top = data["result"][0]
                     return float(top["lat"]), float(top["lon"]), "農研機構"
         except Exception:
-            pass # 次へ
+            pass
 
-        # --- B. Geocoding.jp API ---
+        # --- 3. Geocoding.jp ---
         try:
-            url2 = f"https://www.geocoding.jp/api/?q={search_term}"
-            res2 = requests.get(url2, timeout=10)
-            if res2.status_code == 200:
-                tree = ET.fromstring(res2.content)
+            url_geo = f"https://www.geocoding.jp/api/?q={query}"
+            res_geo = requests.get(url_geo, timeout=10)
+            if res_geo.status_code == 200:
+                tree = ET.fromstring(res_geo.content)
                 lat_node = tree.find("coordinate/lat")
                 lng_node = tree.find("coordinate/lng")
                 if lat_node is not None and lng_node is not None:
                     return float(lat_node.text), float(lng_node.text), "Geocoding.jp"
         except Exception:
             pass
-
+            
     return None, None, None
 
 if st.sidebar.button("最寄りバス停を探す"):
@@ -259,8 +269,8 @@ if st.sidebar.button("最寄りバス停を探す"):
     elif not input_address:
          st.sidebar.warning("住所を入力してください。")
     else:
-        # 実行 (spinnerなし)
-        lat, lng, source_api = search_address_robust(input_address)
+        # 実行
+        lat, lng, source_api = search_address_ultimate(input_address)
             
         if lat and lng:
             st.session_state["search_coords"] = (lat, lng)
@@ -272,12 +282,15 @@ if st.sidebar.button("最寄りバス停を探す"):
                 )
                 top3_stops = valid_stops_for_search.sort_values("distance").head(3)
                 st.session_state["search_results_df"] = top3_stops
-                st.sidebar.success(f"発見しました！")
+                
+                # 詳細な番地が見つからず、町名で検索した場合のメッセージ分岐
+                msg = f"発見しました！ ({source_api})"
+                st.sidebar.success(msg)
             else:
                 st.sidebar.warning("バス停データがありません。")
                 st.session_state["search_results_df"] = None
         else:
-            st.sidebar.error("❌ 住所が見つかりませんでした。「市町村名」を変えるか、番地を削除してお試しください。")
+            st.sidebar.error("❌ 住所が見つかりませんでした。別の書き方をお試しください。")
 
 if st.session_state["search_results_df"] is not None and not st.session_state["search_results_df"].empty:
     st.sidebar.success("📍 **最寄りバス停 (近い順)**")
