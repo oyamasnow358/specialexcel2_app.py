@@ -8,6 +8,7 @@ import os
 import unicodedata
 import requests
 import xml.etree.ElementTree as ET
+import re  # 🆕 正規表現用（住所の数字処理に追加）
 
 # 住所検索・距離計算用ライブラリ
 try:
@@ -194,7 +195,7 @@ if "search_results_df" not in st.session_state: st.session_state["search_results
 if "search_coords" not in st.session_state: st.session_state["search_coords"] = None
 
 # -----------------------------------------------------
-# 🆕 住所で最寄りバス停検索機能 (エラー修正版: spinner削除)
+# 🆕 住所で最寄りバス停検索機能 (改良版: 自動補完)
 # -----------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏠 住所でバス停検索")
@@ -203,37 +204,52 @@ st.sidebar.caption("※番地が見つからない場合は「町名」までで
 
 def search_address_robust(address_str):
     """
-    1. 農研機構API (安定・高精度)
-    2. Geocoding.jp API (バックアップ)
-    の順で検索を試みる関数
+    1. そのまま検索
+    2. 末尾が数字なら「丁目」をつけて検索 (例: 深作3 -> 深作3丁目)
+    3. ハイフンがあれば「丁目」に置換して検索 (例: 深作3-15 -> 深作3丁目15)
     """
-    normalized_addr = unicodedata.normalize('NFKC', address_str)
+    # 基本の正規化
+    normalized_base = unicodedata.normalize('NFKC', address_str)
     
-    # --- 1. 農研機構 API ---
-    try:
-        url1 = "https://aginfo.cgk.affrc.go.jp/ws/geocode/search"
-        headers = {"User-Agent": "school_bus_app_v3"}
-        res1 = requests.get(url1, params={"addr": normalized_addr}, headers=headers, timeout=20)
-        if res1.status_code == 200:
-            data = res1.json()
-            if data.get("result") and len(data["result"]) > 0:
-                top = data["result"][0]
-                return float(top["lat"]), float(top["lon"]), "農研機構"
-    except Exception:
-        pass # 次へ
+    # 検索候補リスト作成
+    candidates = [normalized_base]
+    
+    # 候補2: 数字で終わる場合、「丁目」を足してみる
+    if re.search(r'\d+$', normalized_base):
+        candidates.append(normalized_base + "丁目")
+        
+    # 候補3: ハイフンがある場合、「丁目」に変換してみる
+    if "-" in normalized_base:
+        # 最初のハイフンを丁目に変えてみる簡易対策
+        candidates.append(normalized_base.replace("-", "丁目", 1))
 
-    # --- 2. Geocoding.jp API (バックアップ) ---
-    try:
-        url2 = f"https://www.geocoding.jp/api/?q={normalized_addr}"
-        res2 = requests.get(url2, timeout=20)
-        if res2.status_code == 200:
-            tree = ET.fromstring(res2.content)
-            lat_node = tree.find("coordinate/lat")
-            lng_node = tree.find("coordinate/lng")
-            if lat_node is not None and lng_node is not None:
-                return float(lat_node.text), float(lng_node.text), "Geocoding.jp"
-    except Exception:
-        pass
+    # 順番にAPIで試行
+    for search_term in candidates:
+        # --- A. 農研機構 API ---
+        try:
+            url1 = "https://aginfo.cgk.affrc.go.jp/ws/geocode/search"
+            headers = {"User-Agent": "school_bus_app_v4"}
+            res1 = requests.get(url1, params={"addr": search_term}, headers=headers, timeout=10)
+            if res1.status_code == 200:
+                data = res1.json()
+                if data.get("result") and len(data["result"]) > 0:
+                    top = data["result"][0]
+                    return float(top["lat"]), float(top["lon"]), "農研機構"
+        except Exception:
+            pass # 次へ
+
+        # --- B. Geocoding.jp API ---
+        try:
+            url2 = f"https://www.geocoding.jp/api/?q={search_term}"
+            res2 = requests.get(url2, timeout=10)
+            if res2.status_code == 200:
+                tree = ET.fromstring(res2.content)
+                lat_node = tree.find("coordinate/lat")
+                lng_node = tree.find("coordinate/lng")
+                if lat_node is not None and lng_node is not None:
+                    return float(lat_node.text), float(lng_node.text), "Geocoding.jp"
+        except Exception:
+            pass
 
     return None, None, None
 
@@ -243,7 +259,7 @@ if st.sidebar.button("最寄りバス停を探す"):
     elif not input_address:
          st.sidebar.warning("住所を入力してください。")
     else:
-        # 修正: sidebar.spinnerを使わず直接実行（エラー回避）
+        # 実行 (spinnerなし)
         lat, lng, source_api = search_address_robust(input_address)
             
         if lat and lng:
@@ -256,7 +272,7 @@ if st.sidebar.button("最寄りバス停を探す"):
                 )
                 top3_stops = valid_stops_for_search.sort_values("distance").head(3)
                 st.session_state["search_results_df"] = top3_stops
-                st.sidebar.success(f"発見しました！ ({source_api})")
+                st.sidebar.success(f"発見しました！")
             else:
                 st.sidebar.warning("バス停データがありません。")
                 st.session_state["search_results_df"] = None
