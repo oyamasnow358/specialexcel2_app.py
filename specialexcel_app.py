@@ -185,15 +185,14 @@ is_to_school = (mode_selection == "☀️ 登校 (行き)")
 is_from_school = (mode_selection == "🌙 下校 (帰り)")
 is_all_mode = (mode_selection == "🔄 すべて (全体)")
 
-# 🆕 地図スタイルの切り替えボタン（国土地理院を追加）
+# 🆕 地図スタイルの切り替えボタン（スッキリ淡色地図に変更）
 st.sidebar.markdown("---")
 st.sidebar.subheader("🗺️ 地図設定")
 map_style_selection = st.sidebar.radio(
     "地図の見た目",
     (
-        "標準地図 (国土地理院)", 
+        "見やすい地図 (国土地理院・淡色)", # 🆕 おすすめ
         "航空写真 (国土地理院)", 
-        "色別標高図 (国土地理院)", 
         "シンプル (路線強調)", 
         "詳細 (OpenStreetMap)"
     ),
@@ -425,16 +424,14 @@ else:
     else: center_lat, center_lng = 35.6895, 139.6917
     zoom_start = 14
 
-# 🆕 地図タイルの設定 (国土地理院タイル対応)
+# 🆕 地図タイルの設定 (スッキリ淡色地図に変更)
 attr = None
-if "標準地図" in map_style_selection:
-    selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"
+if "見やすい地図" in map_style_selection:
+    # 🆕 国土地理院「淡色地図」: 色が薄くて文字が見やすく、ルート表示に最適
+    selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"
     attr = "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
 elif "航空写真" in map_style_selection:
     selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"
-    attr = "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
-elif "色別標高図" in map_style_selection:
-    selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png"
     attr = "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
 elif "シンプル" in map_style_selection:
     selected_tiles = "CartoDB positron"
@@ -445,7 +442,7 @@ m = folium.Map(
     location=[center_lat, center_lng], 
     zoom_start=zoom_start, 
     tiles=selected_tiles, 
-    attr=attr,  # 必須: 帰属表示
+    attr=attr,
     scrollWheelZoom=False
 )
 Fullscreen(position="topright", title="全画面表示", title_cancel="元のサイズに戻す", force_separate_button=True).add_to(m)
