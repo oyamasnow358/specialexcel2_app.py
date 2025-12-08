@@ -185,9 +185,20 @@ is_to_school = (mode_selection == "☀️ 登校 (行き)")
 is_from_school = (mode_selection == "🌙 下校 (帰り)")
 is_all_mode = (mode_selection == "🔄 すべて (全体)")
 
+# 🆕 地図スタイルの切り替えボタン（国土地理院を追加）
 st.sidebar.markdown("---")
 st.sidebar.subheader("🗺️ 地図設定")
-map_style_selection = st.sidebar.radio("地図の見た目", ("シンプル (路線強調)", "詳細 (OpenStreetMap)"), index=0)
+map_style_selection = st.sidebar.radio(
+    "地図の見た目",
+    (
+        "標準地図 (国土地理院)", 
+        "航空写真 (国土地理院)", 
+        "色別標高図 (国土地理院)", 
+        "シンプル (路線強調)", 
+        "詳細 (OpenStreetMap)"
+    ),
+    index=0
+)
 
 target_student_info = None
 
@@ -215,21 +226,18 @@ def search_address_ultimate(address_str):
     search_queries = [normalized_addr]
     
     # 数字除去バージョンの作成 (例: 深作3 -> 深作)
-    # これにより「3番地」が見つからなくても「深作」の場所を返せるようにする
     addr_without_digits = re.sub(r'\d+[-]*\d*', '', normalized_addr).strip()
     if addr_without_digits and addr_without_digits != normalized_addr:
         search_queries.append(addr_without_digits)
 
     for query in search_queries:
         # --- 1. 国土地理院 API (Msearch) ---
-        # 日本政府提供。部分一致に強く、座標を返しやすい
         try:
             url_gsi = "https://msearch.gsi.go.jp/address-search/AddressSearch"
             res_gsi = requests.get(url_gsi, params={"q": query}, timeout=10)
             if res_gsi.status_code == 200:
                 data = res_gsi.json()
                 if len(data) > 0:
-                    # 一番上の候補を返す
                     coords = data[0]["geometry"]["coordinates"] # [lon, lat]
                     return float(coords[1]), float(coords[0]), "国土地理院"
         except Exception:
@@ -283,7 +291,6 @@ if st.sidebar.button("最寄りバス停を探す"):
                 top3_stops = valid_stops_for_search.sort_values("distance").head(3)
                 st.session_state["search_results_df"] = top3_stops
                 
-                # 詳細な番地が見つからず、町名で検索した場合のメッセージ分岐
                 msg = f"発見しました！ ({source_api})"
                 st.sidebar.success(msg)
             else:
@@ -418,9 +425,29 @@ else:
     else: center_lat, center_lng = 35.6895, 139.6917
     zoom_start = 14
 
-selected_tiles = "CartoDB positron" if map_style_selection == "シンプル (路線強調)" else "OpenStreetMap"
+# 🆕 地図タイルの設定 (国土地理院タイル対応)
+attr = None
+if "標準地図" in map_style_selection:
+    selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png"
+    attr = "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
+elif "航空写真" in map_style_selection:
+    selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg"
+    attr = "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
+elif "色別標高図" in map_style_selection:
+    selected_tiles = "https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png"
+    attr = "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>"
+elif "シンプル" in map_style_selection:
+    selected_tiles = "CartoDB positron"
+else:
+    selected_tiles = "OpenStreetMap"
 
-m = folium.Map(location=[center_lat, center_lng], zoom_start=zoom_start, tiles=selected_tiles, scrollWheelZoom=False)
+m = folium.Map(
+    location=[center_lat, center_lng], 
+    zoom_start=zoom_start, 
+    tiles=selected_tiles, 
+    attr=attr,  # 必須: 帰属表示
+    scrollWheelZoom=False
+)
 Fullscreen(position="topright", title="全画面表示", title_cancel="元のサイズに戻す", force_separate_button=True).add_to(m)
 
 if st.session_state["search_coords"] is not None:
