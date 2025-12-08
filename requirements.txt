@@ -10,3 +10,4 @@ pandas
 folium
 streamlit-folium
 geopy
+requests
