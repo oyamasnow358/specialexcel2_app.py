@@ -6,10 +6,11 @@ from streamlit_folium import st_folium
 import json
 import os
 import unicodedata  # 全角→半角変換用
+import requests     # 🆕 追加: API通信用ライブラリ
 
 # 住所検索・距離計算用ライブラリ (エラー回避の読み込み処理)
 try:
-    from geopy.geocoders import Nominatim
+    # ⚠️ Nominatimは削除し、距離計算用のgeodesicのみ残します
     from geopy.distance import geodesic
     HAS_GEOPY = True
 except ImportError:
@@ -274,34 +275,42 @@ if "search_coords" not in st.session_state:
     st.session_state["search_coords"] = None
 
 # -----------------------------------------------------
-# 🆕 住所で最寄りバス停検索機能 (全角対応 & 注釈追加)
+# 🆕 住所で最寄りバス停検索機能 (API変更版)
 # -----------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏠 住所でバス停検索")
 input_address = st.sidebar.text_input("住所を入力", placeholder="例: 〇〇区〇〇町 3-15")
-st.sidebar.caption("※番地が見つからない場合は「丁目」まで（例: 3丁目）で検索してください。全角数字は自動変換されます。")
+st.sidebar.caption("※「農研機構」の無料APIを使用しています。")
 
 if st.sidebar.button("最寄りバス停を探す"):
     if not HAS_GEOPY:
         st.sidebar.error("⚠️ エラー: 'geopy' ライブラリが見つかりません。")
-    elif input_address:
-        # 🆕 全角英数字・記号を半角に正規化 (NFKC形式)
+    elif not input_address:
+         st.sidebar.warning("住所を入力してください。")
+    else:
+        # 🆕 全角英数字・記号を半角に正規化
         normalized_address = unicodedata.normalize('NFKC', input_address)
         
-        geolocator = Nominatim(user_agent="bus_route_app_v1")
+        # 🆕【変更点】Nominatimの代わりに、農研機構のAPIを使用
+        url = "https://aginfo.cgk.affrc.go.jp/ws/geocode/search"
+        headers = {"User-Agent": "school_bus_app_v2"} 
+        
         try:
-            # 正規化した住所で検索
-            location = geolocator.geocode(normalized_address)
+            # 農研機構APIにリクエスト
+            response = requests.get(url, params={"addr": normalized_address}, headers=headers, timeout=10)
+            data = response.json()
             
-            # 見つからなかった場合、一応元の入力でも試す（念のため）
-            if not location and normalized_address != input_address:
-                location = geolocator.geocode(input_address)
+            # 結果があるか確認
+            if response.status_code == 200 and data.get("result") and len(data["result"]) > 0:
+                # 一番確度が高い結果を取得
+                top_result = data["result"][0]
+                lat = float(top_result["lat"])
+                lng = float(top_result["lon"])
                 
-            if location:
-                current_search_coords = (location.latitude, location.longitude)
+                current_search_coords = (lat, lng)
                 st.session_state["search_coords"] = current_search_coords
                 
-                # 最寄りバス停計算
+                # 最寄りバス停計算 (ここは以前と同じロジック)
                 valid_stops_for_search = stops_df.dropna(subset=["lat", "lng"]).copy()
                 
                 if not valid_stops_for_search.empty:
@@ -317,7 +326,8 @@ if st.sidebar.button("最寄りバス停を探す"):
                     st.sidebar.warning("現在選択中のスケジュールのバス停データがありません。")
                     st.session_state["search_results_df"] = None
             else:
-                st.sidebar.error("住所が見つかりませんでした。番地を省略して（例: 〇〇町3丁目）再度お試しください。")
+                st.sidebar.error("住所が見つかりませんでした。「市町村名」から正しく入力してみてください。")
+                
         except Exception as e:
             st.sidebar.error(f"検索エラー: {e}")
 
