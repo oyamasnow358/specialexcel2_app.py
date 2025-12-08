@@ -7,7 +7,7 @@ import json
 import os
 import unicodedata
 import requests
-import xml.etree.ElementTree as ET # 🆕 Geocoding.jpの解析用
+import xml.etree.ElementTree as ET
 
 # 住所検索・距離計算用ライブラリ
 try:
@@ -194,7 +194,7 @@ if "search_results_df" not in st.session_state: st.session_state["search_results
 if "search_coords" not in st.session_state: st.session_state["search_coords"] = None
 
 # -----------------------------------------------------
-# 🆕 住所で最寄りバス停検索機能 (最強版: 二段構え)
+# 🆕 住所で最寄りバス停検索機能 (エラー修正版: spinner削除)
 # -----------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🏠 住所でバス停検索")
@@ -213,7 +213,6 @@ def search_address_robust(address_str):
     try:
         url1 = "https://aginfo.cgk.affrc.go.jp/ws/geocode/search"
         headers = {"User-Agent": "school_bus_app_v3"}
-        # タイムアウトを20秒に延長
         res1 = requests.get(url1, params={"addr": normalized_addr}, headers=headers, timeout=20)
         if res1.status_code == 200:
             data = res1.json()
@@ -229,7 +228,6 @@ def search_address_robust(address_str):
         res2 = requests.get(url2, timeout=20)
         if res2.status_code == 200:
             tree = ET.fromstring(res2.content)
-            # lat/lngタグを探す
             lat_node = tree.find("coordinate/lat")
             lng_node = tree.find("coordinate/lng")
             if lat_node is not None and lng_node is not None:
@@ -245,13 +243,12 @@ if st.sidebar.button("最寄りバス停を探す"):
     elif not input_address:
          st.sidebar.warning("住所を入力してください。")
     else:
-        with st.sidebar.spinner("🔍 検索中... (複数のデータベースを確認しています)"):
-            lat, lng, source_api = search_address_robust(input_address)
+        # 修正: sidebar.spinnerを使わず直接実行（エラー回避）
+        lat, lng, source_api = search_address_robust(input_address)
             
         if lat and lng:
             st.session_state["search_coords"] = (lat, lng)
             
-            # 距離計算
             valid_stops_for_search = stops_df.dropna(subset=["lat", "lng"]).copy()
             if not valid_stops_for_search.empty:
                 valid_stops_for_search["distance"] = valid_stops_for_search.apply(
